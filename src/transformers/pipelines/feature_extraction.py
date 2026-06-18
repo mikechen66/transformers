@@ -1,82 +1,88 @@
-from typing import TYPE_CHECKING, Optional, Union
+from typing import Any
 
-from ..modelcard import ModelCard
-from ..tokenization_utils import PreTrainedTokenizer
-from .base import ArgumentHandler, Pipeline
-
-
-if TYPE_CHECKING:
-    from ..modeling_tf_utils import TFPreTrainedModel
-    from ..modeling_utils import PreTrainedModel
+from ..utils import add_end_docstrings
+from .base import GenericTensor, Pipeline, build_pipeline_init_args
 
 
-# Can't use @add_end_docstrings(PIPELINE_INIT_ARGS) here because this one does not accept `binary_output`
+@add_end_docstrings(
+    build_pipeline_init_args(has_tokenizer=True, supports_binary_output=False),
+    r"""
+        tokenize_kwargs (`dict`, *optional*):
+                Additional dictionary of keyword arguments passed along to the tokenizer.
+        return_tensors (`bool`, *optional*):
+            If `True`, returns a tensor according to the specified framework, otherwise returns a list.""",
+)
 class FeatureExtractionPipeline(Pipeline):
     """
-    Feature extraction pipeline using no model head. This pipeline extracts the hidden states from the base
+    Feature extraction pipeline uses no model head. This pipeline extracts the hidden states from the base
     transformer, which can be used as features in downstream tasks.
 
-    This feature extraction pipeline can currently be loaded from :func:`~transformers.pipeline` using the task
-    identifier: :obj:`"feature-extraction"`.
+    Example:
+
+    ```python
+    >>> from transformers import pipeline
+
+    >>> extractor = pipeline(model="google-bert/bert-base-uncased", task="feature-extraction")
+    >>> result = extractor("This is a simple test.", return_tensors=True)
+    >>> result.shape  # This is a tensor of shape [1, sequence_length, hidden_dimension] representing the input string.
+    torch.Size([1, 8, 768])
+    ```
+
+    Learn more about the basics of using a pipeline in the [pipeline tutorial](../pipeline_tutorial)
+
+    This feature extraction pipeline can currently be loaded from [`pipeline`] using the task identifier:
+    `"feature-extraction"`.
 
     All models may be used for this pipeline. See a list of all models, including community-contributed models on
-    `huggingface.co/models <https://huggingface.co/models>`__.
-
-    Arguments:
-        model (:obj:`~transformers.PreTrainedModel` or :obj:`~transformers.TFPreTrainedModel`):
-            The model that will be used by the pipeline to make predictions. This needs to be a model inheriting from
-            :class:`~transformers.PreTrainedModel` for PyTorch and :class:`~transformers.TFPreTrainedModel` for
-            TensorFlow.
-        tokenizer (:obj:`~transformers.PreTrainedTokenizer`):
-            The tokenizer that will be used by the pipeline to encode data for the model. This object inherits from
-            :class:`~transformers.PreTrainedTokenizer`.
-        modelcard (:obj:`str` or :class:`~transformers.ModelCard`, `optional`):
-            Model card attributed to the model for this pipeline.
-        framework (:obj:`str`, `optional`):
-            The framework to use, either :obj:`"pt"` for PyTorch or :obj:`"tf"` for TensorFlow. The specified framework
-            must be installed.
-
-            If no framework is specified, will default to the one currently installed. If no framework is specified and
-            both frameworks are installed, will default to the framework of the :obj:`model`, or to PyTorch if no model
-            is provided.
-        task (:obj:`str`, defaults to :obj:`""`):
-            A task-identifier for the pipeline.
-        args_parser (:class:`~transformers.pipelines.ArgumentHandler`, `optional`):
-            Reference to the object in charge of parsing supplied pipeline parameters.
-        device (:obj:`int`, `optional`, defaults to -1):
-            Device ordinal for CPU/GPU supports. Setting this to -1 will leverage CPU, a positive will run the model on
-            the associated CUDA device id.
+    [huggingface.co/models](https://huggingface.co/models).
     """
 
-    def __init__(
-        self,
-        model: Union["PreTrainedModel", "TFPreTrainedModel"],
-        tokenizer: PreTrainedTokenizer,
-        modelcard: Optional[ModelCard] = None,
-        framework: Optional[str] = None,
-        args_parser: ArgumentHandler = None,
-        device: int = -1,
-        task: str = "",
-    ):
-        super().__init__(
-            model=model,
-            tokenizer=tokenizer,
-            modelcard=modelcard,
-            framework=framework,
-            args_parser=args_parser,
-            device=device,
-            binary_output=True,
-            task=task,
-        )
+    _load_processor = False
+    _load_image_processor = False
+    _load_feature_extractor = False
+    _load_tokenizer = True
 
-    def __call__(self, *args, **kwargs):
+    def _sanitize_parameters(self, truncation=None, tokenize_kwargs=None, return_tensors=None, **kwargs):
+        if tokenize_kwargs is None:
+            tokenize_kwargs = {}
+
+        if truncation is not None:
+            if "truncation" in tokenize_kwargs:
+                raise ValueError(
+                    "truncation parameter defined twice (given as keyword argument as well as in tokenize_kwargs)"
+                )
+            tokenize_kwargs["truncation"] = truncation
+
+        preprocess_params = tokenize_kwargs
+
+        postprocess_params = {}
+        if return_tensors is not None:
+            postprocess_params["return_tensors"] = return_tensors
+
+        return preprocess_params, {}, postprocess_params
+
+    def preprocess(self, inputs, **tokenize_kwargs) -> dict[str, GenericTensor]:
+        model_inputs = self.tokenizer(inputs, return_tensors="pt", **tokenize_kwargs)
+        return model_inputs
+
+    def _forward(self, model_inputs):
+        model_outputs = self.model(**model_inputs)
+        return model_outputs
+
+    def postprocess(self, model_outputs, return_tensors=False):
+        # [0] is the first available tensor, logits or last_hidden_state.
+        if return_tensors:
+            return model_outputs[0]
+        return model_outputs[0].tolist()
+
+    def __call__(self, *args: str | list[str], **kwargs: Any) -> Any | list[Any]:
         """
-        Extract the features of the input(s).
+        Extract the features of the input(s) text.
 
         Args:
-            args (:obj:`str` or :obj:`List[str]`): One or several texts (or one list of texts) to get the features of.
+            args (`str` or `list[str]`): One or several texts (or one list of texts) to get the features of.
 
         Return:
-            A nested list of :obj:`float`: The features computed by the model.
+            A nested list of `float`: The features computed by the model.
         """
-        return super().__call__(*args, **kwargs).tolist()
+        return super().__call__(*args, **kwargs)

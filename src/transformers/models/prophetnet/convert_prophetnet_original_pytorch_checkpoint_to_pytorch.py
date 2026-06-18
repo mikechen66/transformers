@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,12 +13,9 @@
 # limitations under the License.
 """Convert ProphetNet checkpoint."""
 
-
 import argparse
 
-import torch
-
-from transformers import ProphetNetForConditionalGeneration, XLMProphetNetForConditionalGeneration, logging
+from torch import nn
 
 # transformers_old should correspond to branch `save_old_prophetnet_model_structure` here
 # original prophetnet_checkpoints are saved under `patrickvonplaten/..._old` respectively
@@ -29,6 +25,8 @@ from transformers_old.modeling_prophetnet import (
 from transformers_old.modeling_xlm_prophetnet import (
     XLMProphetNetForConditionalGeneration as XLMProphetNetForConditionalGenerationOld,
 )
+
+from transformers import ProphetNetForConditionalGeneration, XLMProphetNetForConditionalGeneration, logging
 
 
 logger = logging.get_logger(__name__)
@@ -107,23 +105,23 @@ def convert_prophetnet_checkpoint_to_pytorch(prophetnet_checkpoint_path: str, py
                 param.weight.shape == old_model.in_proj_weight[:embed_dim, :].shape, "Shapes have to match"
                 param.bias.shape == old_model.in_proj_bias[:embed_dim].shape, "Shapes have to match"
                 if attribute == "query_proj":
-                    model.query_proj.weight = torch.nn.Parameter(old_model.in_proj_weight[:embed_dim, :])
-                    model.query_proj.bias = torch.nn.Parameter(old_model.in_proj_bias[:embed_dim])
+                    model.query_proj.weight = nn.Parameter(old_model.in_proj_weight[:embed_dim, :])
+                    model.query_proj.bias = nn.Parameter(old_model.in_proj_bias[:embed_dim])
 
                 elif attribute == "key_proj":
-                    model.key_proj.weight = torch.nn.Parameter(old_model.in_proj_weight[embed_dim : 2 * embed_dim, :])
-                    model.key_proj.bias = torch.nn.Parameter(old_model.in_proj_bias[embed_dim : 2 * embed_dim])
+                    model.key_proj.weight = nn.Parameter(old_model.in_proj_weight[embed_dim : 2 * embed_dim, :])
+                    model.key_proj.bias = nn.Parameter(old_model.in_proj_bias[embed_dim : 2 * embed_dim])
                 elif attribute == "value_proj":
-                    model.value_proj.weight = torch.nn.Parameter(old_model.in_proj_weight[2 * embed_dim :, :])
-                    model.value_proj.bias = torch.nn.Parameter(old_model.in_proj_bias[2 * embed_dim :])
+                    model.value_proj.weight = nn.Parameter(old_model.in_proj_weight[2 * embed_dim :, :])
+                    model.value_proj.bias = nn.Parameter(old_model.in_proj_bias[2 * embed_dim :])
                 is_key_init = True
                 break
             elif attribute == "position_embeddings":
-                assert (
-                    model.position_embeddings.weight.shape[-1] == old_model.embed_positions.weight.shape[-1]
-                ), "Hidden size has to match"
+                assert model.position_embeddings.weight.shape[-1] == old_model.embed_positions.weight.shape[-1], (
+                    "Hidden size has to match"
+                )
                 assert model.position_embeddings.weight.shape[0] == 512, "We want 512 position_embeddings."
-                model.position_embeddings.weight = torch.nn.Parameter(old_model.embed_positions.weight[:512, :])
+                model.position_embeddings.weight = nn.Parameter(old_model.embed_positions.weight[:512, :])
                 is_key_init = True
                 break
 
@@ -133,9 +131,7 @@ def convert_prophetnet_checkpoint_to_pytorch(prophetnet_checkpoint_path: str, py
             else:
                 model = getattr(model, attribute)
 
-                if old_attribute == "":
-                    old_model = old_model
-                else:
+                if old_attribute:
                     if not hasattr(old_model, old_attribute):
                         raise ValueError(f"{old_model} does not have {old_attribute}")
                     old_model = getattr(old_model, old_attribute)

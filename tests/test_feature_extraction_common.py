@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 HuggingFace Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +17,12 @@ import json
 import os
 import tempfile
 
+from transformers.testing_utils import check_json_file_has_correct_format
+
 
 class FeatureExtractionSavingTestMixin:
+    test_cast_dtype = None
+
     def test_feat_extract_to_json_string(self):
         feat_extract = self.feature_extraction_class(**self.feat_extract_dict)
         obj = json.loads(feat_extract.to_json_string())
@@ -40,7 +43,8 @@ class FeatureExtractionSavingTestMixin:
         feat_extract_first = self.feature_extraction_class(**self.feat_extract_dict)
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-            feat_extract_first.save_pretrained(tmpdirname)
+            saved_file = feat_extract_first.save_pretrained(tmpdirname)[0]
+            check_json_file_has_correct_format(saved_file)
             feat_extract_second = self.feature_extraction_class.from_pretrained(tmpdirname)
 
         self.assertEqual(feat_extract_second.to_dict(), feat_extract_first.to_dict())

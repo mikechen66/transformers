@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -13,52 +12,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" RoBERTa configuration """
+"""RoBERTa configuration"""
 
-from ...utils import logging
-from ..bert.configuration_bert import BertConfig
+from huggingface_hub.dataclasses import strict
 
-
-logger = logging.get_logger(__name__)
-
-ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "roberta-base": "https://huggingface.co/roberta-base/resolve/main/config.json",
-    "roberta-large": "https://huggingface.co/roberta-large/resolve/main/config.json",
-    "roberta-large-mnli": "https://huggingface.co/roberta-large-mnli/resolve/main/config.json",
-    "distilroberta-base": "https://huggingface.co/distilroberta-base/resolve/main/config.json",
-    "roberta-base-openai-detector": "https://huggingface.co/roberta-base-openai-detector/resolve/main/config.json",
-    "roberta-large-openai-detector": "https://huggingface.co/roberta-large-openai-detector/resolve/main/config.json",
-}
+from ...configuration_utils import PreTrainedConfig
+from ...utils import auto_docstring
 
 
-class RobertaConfig(BertConfig):
+@auto_docstring(checkpoint="FacebookAI/roberta-base")
+@strict
+class RobertaConfig(PreTrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a :class:`~transformers.RobertaModel` or a
-    :class:`~transformers.TFRobertaModel`. It is used to instantiate a RoBERTa model according to the specified
-    arguments, defining the model architecture.
+    Examples:
 
+    ```python
+    >>> from transformers import RobertaConfig, RobertaModel
 
-    Configuration objects inherit from :class:`~transformers.PretrainedConfig` and can be used to control the model
-    outputs. Read the documentation from :class:`~transformers.PretrainedConfig` for more information.
+    >>> # Initializing a RoBERTa configuration
+    >>> configuration = RobertaConfig()
 
-    The :class:`~transformers.RobertaConfig` class directly inherits :class:`~transformers.BertConfig`. It reuses the
-    same defaults. Please check the parent class for more information.
+    >>> # Initializing a model (with random weights) from the configuration
+    >>> model = RobertaModel(configuration)
 
-    Examples::
+    >>> # Accessing the model configuration
+    >>> configuration = model.config
+    ```"""
 
-        >>> from transformers import RobertaConfig, RobertaModel
-
-        >>> # Initializing a RoBERTa configuration
-        >>> configuration = RobertaConfig()
-
-        >>> # Initializing a model from the configuration
-        >>> model = RobertaModel(configuration)
-
-        >>> # Accessing the model configuration
-        >>> configuration = model.config
-    """
     model_type = "roberta"
 
-    def __init__(self, pad_token_id=1, bos_token_id=0, eos_token_id=2, **kwargs):
-        """Constructs RobertaConfig."""
-        super().__init__(pad_token_id=pad_token_id, bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)
+    vocab_size: int = 50265
+    hidden_size: int = 768
+    num_hidden_layers: int = 12
+    num_attention_heads: int = 12
+    intermediate_size: int = 3072
+    hidden_act: str = "gelu"
+    hidden_dropout_prob: float | int = 0.1
+    attention_probs_dropout_prob: float | int = 0.1
+    max_position_embeddings: int = 512
+    type_vocab_size: int = 2
+    initializer_range: float = 0.02
+    layer_norm_eps: float = 1e-12
+    pad_token_id: int | None = 1
+    bos_token_id: int | None = 0
+    eos_token_id: int | list[int] | None = 2
+    use_cache: bool = True
+    classifier_dropout: float | int | None = None
+    is_decoder: bool = False
+    add_cross_attention: bool = False
+    tie_word_embeddings: bool = True
+
+
+__all__ = ["RobertaConfig"]

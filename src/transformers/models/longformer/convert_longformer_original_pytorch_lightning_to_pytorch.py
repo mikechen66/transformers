@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,11 +13,11 @@
 # limitations under the License.
 """Convert RoBERTa checkpoint."""
 
-
 import argparse
 
 import pytorch_lightning as pl
 import torch
+from torch import nn
 
 from transformers import LongformerForQuestionAnswering, LongformerModel
 
@@ -28,7 +27,7 @@ class LightningModel(pl.LightningModule):
         super().__init__()
         self.model = model
         self.num_labels = 2
-        self.qa_outputs = torch.nn.Linear(self.model.config.hidden_size, self.num_labels)
+        self.qa_outputs = nn.Linear(self.model.config.hidden_size, self.num_labels)
 
     # implement only because lightning requires to do so
     def forward(self):
@@ -38,12 +37,11 @@ class LightningModel(pl.LightningModule):
 def convert_longformer_qa_checkpoint_to_pytorch(
     longformer_model: str, longformer_question_answering_ckpt_path: str, pytorch_dump_folder_path: str
 ):
-
     # load longformer model from model identifier
     longformer = LongformerModel.from_pretrained(longformer_model)
     lightning_model = LightningModel(longformer)
 
-    ckpt = torch.load(longformer_question_answering_ckpt_path, map_location=torch.device("cpu"))
+    ckpt = torch.load(longformer_question_answering_ckpt_path, map_location=torch.device("cpu"), weights_only=True)
     lightning_model.load_state_dict(ckpt["state_dict"])
 
     # init longformer question answering model
@@ -57,7 +55,7 @@ def convert_longformer_qa_checkpoint_to_pytorch(
     # save model
     longformer_for_qa.save_pretrained(pytorch_dump_folder_path)
 
-    print("Conversion successful. Model saved under {}".format(pytorch_dump_folder_path))
+    print(f"Conversion successful. Model saved under {pytorch_dump_folder_path}")
 
 
 if __name__ == "__main__":

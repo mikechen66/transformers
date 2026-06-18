@@ -1,86 +1,93 @@
-.PHONY: deps_table_update modified_only_fixup extra_quality_checks quality style fixup fix-copies test test-examples docs
+# make sure to test the local checkout in scripts and not the pre-installed one (don't use quotes!)
+export PYTHONPATH = src
+
+.PHONY: style typing check-code-quality check-repository-consistency check-repo fix-repo test test-examples benchmark codex claude clean-ai
 
 
-check_dirs := examples tests src utils
+# Checker lists. The two CI jobs (CircleCI runs `make check-code-quality` and
+# `make check-repository-consistency` in parallel) own the canonical sets below.
+# Local convenience targets `check-repo` and `fix-repo` are *derived* from them,
+# so they can never drift out of sync (e.g. silently dropping `auto_mappings`
+# from CI, as happened in #45018 → fixed in #45774).
 
-modified_only_fixup:
-	$(eval modified_py_files := $(shell python utils/get_modified_files.py $(check_dirs)))
-	@if test -n "$(modified_py_files)"; then \
-		echo "Checking/fixing $(modified_py_files)"; \
-		black $(modified_py_files); \
-		isort $(modified_py_files); \
-		flake8 $(modified_py_files); \
-	else \
-		echo "No library .py files were modified"; \
-	fi
+STYLE_CHECKERS := ruff_check, ruff_format, init_isort, sort_auto_mappings
+TYPING_CHECKERS := types, modeling_structure
+CODE_QUALITY_CHECKERS := $(TYPING_CHECKERS), $(STYLE_CHECKERS)
 
-# Update src/transformers/dependency_versions_table.py
+REPO_CONSISTENCY_CHECKERS := \
+	auto_mappings, \
+	imports, \
+	import_complexity, \
+	copies, \
+	modular_conversion, \
+	doc_toc, \
+	modeling_rules_doc, \
+	docstrings, \
+	dummies, \
+	repo, \
+	inits, \
+	pipeline_typing, \
+	config_docstrings, \
+	config_attributes, \
+	doctest_list, \
+	update_metadata, \
+	add_dates, \
+	deps_table
 
-deps_table_update:
-	@python setup.py deps_table_update
+ALL_CHECKERS := $(CODE_QUALITY_CHECKERS), $(REPO_CONSISTENCY_CHECKERS)
 
-# autogenerating code
 
-autogenerate_code: deps_table_update
-	python utils/class_mapping_update.py
-
-# Check that source code meets quality standards
-
-extra_quality_checks:
-	python utils/check_copies.py
-	python utils/check_table.py
-	python utils/check_dummies.py
-	python utils/check_repo.py
-
-# this target runs checks on all files
-quality:
-	black --check $(check_dirs)
-	isort --check-only $(check_dirs)
-	python utils/custom_init_isort.py --check_only
-	flake8 $(check_dirs)
-	${MAKE} extra_quality_checks
-
-# Format source code automatically and check is there are any problems left that need manual fixing
-
-extra_style_checks:
-	python utils/custom_init_isort.py
-	python utils/style_doc.py src/transformers docs/source --max_len 119
-
-# this target runs checks on all files and potentially modifies some of them
+# Runs all linting/formatting scripts, most notably ruff
 style:
-	black $(check_dirs)
-	isort $(check_dirs)
-	${MAKE} autogenerate_code
-	${MAKE} extra_style_checks
+	@python utils/checkers.py $(STYLE_CHECKERS) --fix
 
-# Super fast fix and check target that only works on relevant modified files since the branch was made
+# Runs ty type checker and model structure rules
+typing:
+	@python utils/checkers.py $(TYPING_CHECKERS)
 
-fixup: modified_only_fixup extra_style_checks autogenerate_code extra_quality_checks
+# Runs typing, ruff linting/formatting, import-order checks and auto-mappings
+check-code-quality:
+	@python utils/checkers.py $(CODE_QUALITY_CHECKERS)
 
-# Make marked copies of snippets of codes conform to the original
+# Runs a full repository consistency check.
+check-repository-consistency:
+	@python utils/checkers.py $(REPO_CONSISTENCY_CHECKERS)
 
-fix-copies:
-	python utils/check_copies.py --fix_and_overwrite
-	python utils/check_table.py --fix_and_overwrite
-	python utils/check_dummies.py --fix_and_overwrite
+# Runs typing and formatting checks + repository consistency check (ignores errors)
+check-repo:
+	@python utils/checkers.py $(ALL_CHECKERS) --keep-going
 
-# Run tests for the library
+# Run all repo checks for which there is an automatic fix, most notably modular conversions
+fix-repo:
+	@python utils/checkers.py $(ALL_CHECKERS) --fix --keep-going
 
+# Run tests for the library, requires pytest-random-order
 test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest -p random_order -n auto --dist=loadfile -s -v --random-order-bucket=module ./tests/
 
-# Run tests for examples
-
+# Run tests for examples, requires pytest-random-order
 test-examples:
-	python -m pytest -n auto --dist=loadfile -s -v ./examples/
+	python -m pytest -p random_order -n auto --dist=loadfile -s -v --random-order-bucket=module ./examples/pytorch/
 
-# Check that docs can build
+# Run benchmark
+benchmark:
+	python3 benchmark/benchmark.py --config-dir benchmark/config --config-name generation --commit=diff backend.model=google/gemma-2b backend.cache_implementation=null,static backend.torch_compile=false,true --multirun
 
-docs:
-	cd docs && make html SPHINXOPTS="-W -j 4"
+codex:
+	mkdir -p .agents
+	rm -rf .agents/skills
+	ln -snf ../.ai/skills .agents/skills
+
+claude:
+	mkdir -p .claude
+	rm -rf .claude/skills
+	ln -snf ../.ai/skills .claude/skills
+
+clean-ai:
+	rm -rf .agents/skills .claude/skills
+
 
 # Release stuff
-
 pre-release:
 	python utils/release.py
 
@@ -92,3 +99,9 @@ post-release:
 
 post-patch:
 	python utils/release.py --post_release --patch
+
+build-release:
+	rm -rf dist
+	rm -rf build
+	python setup.py bdist_wheel
+	python setup.py sdist

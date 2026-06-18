@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -13,25 +12,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" CamemBERT configuration """
+"""CamemBERT configuration"""
 
-from ...utils import logging
-from ..roberta.configuration_roberta import RobertaConfig
+from huggingface_hub.dataclasses import strict
 
-
-logger = logging.get_logger(__name__)
-
-CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "camembert-base": "https://huggingface.co/camembert-base/resolve/main/config.json",
-    "umberto-commoncrawl-cased-v1": "https://huggingface.co/Musixmatch/umberto-commoncrawl-cased-v1/resolve/main/config.json",
-    "umberto-wikipedia-uncased-v1": "https://huggingface.co/Musixmatch/umberto-wikipedia-uncased-v1/resolve/main/config.json",
-}
+from ...configuration_utils import PreTrainedConfig
+from ...utils import auto_docstring
 
 
-class CamembertConfig(RobertaConfig):
-    """
-    This class overrides :class:`~transformers.RobertaConfig`. Please check the superclass for the appropriate
-    documentation alongside usage examples.
-    """
+@auto_docstring(checkpoint="almanach/camembert-base")
+@strict
+class CamembertConfig(PreTrainedConfig):
+    r"""
+    Example:
+
+    ```python
+    >>> from transformers import CamembertConfig, CamembertModel
+
+    >>> # Initializing a Camembert almanach/camembert-base style configuration
+    >>> configuration = CamembertConfig()
+
+    >>> # Initializing a model (with random weights) from the almanach/camembert-base style configuration
+    >>> model = CamembertModel(configuration)
+
+    >>> # Accessing the model configuration
+    >>> configuration = model.config
+    ```"""
 
     model_type = "camembert"
+
+    vocab_size: int = 30522
+    hidden_size: int = 768
+    num_hidden_layers: int = 12
+    num_attention_heads: int = 12
+    intermediate_size: int = 3072
+    hidden_act: str = "gelu"
+    hidden_dropout_prob: float | int = 0.1
+    attention_probs_dropout_prob: float | int = 0.1
+    max_position_embeddings: int = 512
+    type_vocab_size: int = 2
+    initializer_range: float = 0.02
+    layer_norm_eps: float = 1e-12
+    pad_token_id: int | None = 1
+    bos_token_id: int | None = 0
+    eos_token_id: int | list[int] | None = 2
+    use_cache: bool = True
+    classifier_dropout: float | int | None = None
+    is_decoder: bool = False
+    add_cross_attention: bool = False
+    tie_word_embeddings: bool = True
+
+
+__all__ = ["CamembertConfig"]

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The Google AI Language Team Authors, Allegro.pl, Facebook Inc. and the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,73 +12,100 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from tokenizers import Tokenizer, decoders, normalizers, pre_tokenizers, processors
+from tokenizers.models import BPE
+
+from ...tokenization_utils_tokenizers import TokenizersBackend
 from ...utils import logging
-from ..bert.tokenization_bert import BasicTokenizer
-from ..xlm.tokenization_xlm import XLMTokenizer
 
 
 logger = logging.get_logger(__name__)
 
-VOCAB_FILES_NAMES = {
-    "vocab_file": "vocab.json",
-    "merges_file": "merges.txt",
-}
-
-PRETRAINED_VOCAB_FILES_MAP = {
-    "vocab_file": {
-        "allegro/herbert-base-cased": "https://huggingface.co/allegro/herbert-base-cased/resolve/main/vocab.json"
-    },
-    "merges_file": {
-        "allegro/herbert-base-cased": "https://huggingface.co/allegro/herbert-base-cased/resolve/main/merges.txt"
-    },
-}
-
-PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {"allegro/herbert-base-cased": 514}
-PRETRAINED_INIT_CONFIGURATION = {}
+VOCAB_FILES_NAMES = {"vocab_file": "vocab.json", "merges_file": "merges.txt"}
 
 
-class HerbertTokenizer(XLMTokenizer):
+class HerbertTokenizer(TokenizersBackend):
     """
-    Construct a BPE tokenizer for HerBERT.
+    Construct a BPE tokenizer for HerBERT (backed by HuggingFace's tokenizers library).
 
     Peculiarities:
 
-    - uses BERT's pre-tokenizer: BaseTokenizer splits tokens on spaces, and also on punctuation. Each occurrence of a
-      punctuation character will be treated separately.
+    - uses BERT's pre-tokenizer: BertPreTokenizer splits tokens on spaces, and also on punctuation. Each occurrence of
+      a punctuation character will be treated separately.
 
-    - Such pretokenized input is BPE subtokenized
+    This tokenizer inherits from [`TokenizersBackend`] which contains most of the methods. Users should refer to the
+    superclass for more information regarding methods.
 
-    This tokenizer inherits from :class:`~transformers.XLMTokenizer` which contains most of the methods. Users should
-    refer to the superclass for more information regarding methods.
+    Args:
+        vocab_file (`str`):
+            Path to the vocabulary file.
+        merges_file (`str`):
+            Path to the merges file.
+        cls_token (`str`, *optional*, defaults to `"<s>"`):
+            The classifier token.
+        unk_token (`str`, *optional*, defaults to `"<unk>"`):
+            The unknown token.
+        pad_token (`str`, *optional*, defaults to `"<pad>"`):
+            The padding token.
+        mask_token (`str`, *optional*, defaults to `"<mask>"`):
+            The mask token.
+        sep_token (`str`, *optional*, defaults to `"</s>"`):
+            The separator token.
+        vocab (`str`, `dict` or `list`, *optional*):
+            Custom vocabulary dictionary.
+        merges (`str` or `list[str]`, *optional*):
+            Custom merges list.
     """
 
     vocab_files_names = VOCAB_FILES_NAMES
-    pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
-    pretrained_init_configuration = PRETRAINED_INIT_CONFIGURATION
-    max_model_input_sizes = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
+    model_input_names = ["input_ids", "attention_mask"]
+    model = BPE
 
-    def __init__(self, **kwargs):
-
-        kwargs["cls_token"] = "<s>"
-        kwargs["unk_token"] = "<unk>"
-        kwargs["pad_token"] = "<pad>"
-        kwargs["mask_token"] = "<mask>"
-        kwargs["sep_token"] = "</s>"
-        kwargs["do_lowercase_and_remove_accent"] = False
-        kwargs["additional_special_tokens"] = []
-
-        super().__init__(**kwargs)
-        self.bert_pre_tokenizer = BasicTokenizer(
-            do_lower_case=False, never_split=self.all_special_tokens, tokenize_chinese_chars=False, strip_accents=False
+    def __init__(
+        self,
+        vocab: str | dict[str, int] | None = None,
+        merges: str | list[str] | None = None,
+        cls_token: str = "<s>",
+        unk_token: str = "<unk>",
+        pad_token: str = "<pad>",
+        mask_token: str = "<mask>",
+        sep_token: str = "</s>",
+        vocab_file: str | None = None,
+        merges_file: str | None = None,
+        **kwargs,
+    ):
+        self._vocab = vocab if vocab is not None else {str(unk_token): 0}
+        self._merges = merges or []
+        self._tokenizer = Tokenizer(
+            BPE(
+                vocab=self._vocab,
+                merges=self._merges,
+                dropout=None,
+                unk_token=str(unk_token),
+                end_of_word_suffix="</w>",
+            )
         )
 
-    def _tokenize(self, text):
+        self._tokenizer.normalizer = normalizers.BertNormalizer(
+            lowercase=False, strip_accents=False, clean_text=True, handle_chinese_chars=True
+        )
+        self._tokenizer.pre_tokenizer = pre_tokenizers.BertPreTokenizer()
+        self._tokenizer.decoder = decoders.BPEDecoder(suffix="</w>")
 
-        pre_tokens = self.bert_pre_tokenizer.tokenize(text)
+        super().__init__(
+            cls_token=cls_token,
+            unk_token=unk_token,
+            pad_token=pad_token,
+            mask_token=mask_token,
+            sep_token=sep_token,
+            **kwargs,
+        )
 
-        split_tokens = []
-        for token in pre_tokens:
-            if token:
-                split_tokens.extend([t for t in self.bpe(token).split(" ")])
+        self._tokenizer.post_processor = processors.BertProcessing(
+            sep=(self.sep_token, 2),
+            cls=(self.cls_token, 0),
+        )
 
-        return split_tokens
+
+__all__ = ["HerbertTokenizer"]

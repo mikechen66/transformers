@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,223 +11,194 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Auto Config class. """
+"""Auto Config class."""
 
+import importlib
+import os
 import re
 from collections import OrderedDict
+from collections.abc import Callable, Iterator, KeysView, ValuesView
+from typing import Any, TypeVar
 
-from ...configuration_utils import PretrainedConfig
-from ..albert.configuration_albert import ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, AlbertConfig
-from ..bart.configuration_bart import BART_PRETRAINED_CONFIG_ARCHIVE_MAP, BartConfig
-from ..bert.configuration_bert import BERT_PRETRAINED_CONFIG_ARCHIVE_MAP, BertConfig
-from ..bert_generation.configuration_bert_generation import BertGenerationConfig
-from ..blenderbot.configuration_blenderbot import BLENDERBOT_PRETRAINED_CONFIG_ARCHIVE_MAP, BlenderbotConfig
-from ..blenderbot_small.configuration_blenderbot_small import (
-    BLENDERBOT_SMALL_PRETRAINED_CONFIG_ARCHIVE_MAP,
-    BlenderbotSmallConfig,
-)
-from ..camembert.configuration_camembert import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, CamembertConfig
-from ..convbert.configuration_convbert import CONVBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, ConvBertConfig
-from ..ctrl.configuration_ctrl import CTRL_PRETRAINED_CONFIG_ARCHIVE_MAP, CTRLConfig
-from ..deberta.configuration_deberta import DEBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, DebertaConfig
-from ..deberta_v2.configuration_deberta_v2 import DEBERTA_V2_PRETRAINED_CONFIG_ARCHIVE_MAP, DebertaV2Config
-from ..distilbert.configuration_distilbert import DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, DistilBertConfig
-from ..dpr.configuration_dpr import DPR_PRETRAINED_CONFIG_ARCHIVE_MAP, DPRConfig
-from ..electra.configuration_electra import ELECTRA_PRETRAINED_CONFIG_ARCHIVE_MAP, ElectraConfig
-from ..encoder_decoder.configuration_encoder_decoder import EncoderDecoderConfig
-from ..flaubert.configuration_flaubert import FLAUBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, FlaubertConfig
-from ..fsmt.configuration_fsmt import FSMT_PRETRAINED_CONFIG_ARCHIVE_MAP, FSMTConfig
-from ..funnel.configuration_funnel import FUNNEL_PRETRAINED_CONFIG_ARCHIVE_MAP, FunnelConfig
-from ..gpt2.configuration_gpt2 import GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP, GPT2Config
-from ..ibert.configuration_ibert import IBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, IBertConfig
-from ..layoutlm.configuration_layoutlm import LAYOUTLM_PRETRAINED_CONFIG_ARCHIVE_MAP, LayoutLMConfig
-from ..led.configuration_led import LED_PRETRAINED_CONFIG_ARCHIVE_MAP, LEDConfig
-from ..longformer.configuration_longformer import LONGFORMER_PRETRAINED_CONFIG_ARCHIVE_MAP, LongformerConfig
-from ..lxmert.configuration_lxmert import LXMERT_PRETRAINED_CONFIG_ARCHIVE_MAP, LxmertConfig
-from ..m2m_100.configuration_m2m_100 import M2M_100_PRETRAINED_CONFIG_ARCHIVE_MAP, M2M100Config
-from ..marian.configuration_marian import MarianConfig
-from ..mbart.configuration_mbart import MBART_PRETRAINED_CONFIG_ARCHIVE_MAP, MBartConfig
-from ..mobilebert.configuration_mobilebert import MobileBertConfig
-from ..mpnet.configuration_mpnet import MPNET_PRETRAINED_CONFIG_ARCHIVE_MAP, MPNetConfig
-from ..mt5.configuration_mt5 import MT5Config
-from ..openai.configuration_openai import OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP, OpenAIGPTConfig
-from ..pegasus.configuration_pegasus import PegasusConfig
-from ..prophetnet.configuration_prophetnet import PROPHETNET_PRETRAINED_CONFIG_ARCHIVE_MAP, ProphetNetConfig
-from ..rag.configuration_rag import RagConfig
-from ..reformer.configuration_reformer import ReformerConfig
-from ..retribert.configuration_retribert import RETRIBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, RetriBertConfig
-from ..roberta.configuration_roberta import ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, RobertaConfig
-from ..speech_to_text.configuration_speech_to_text import (
-    SPEECH_TO_TEXT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-    Speech2TextConfig,
-)
-from ..squeezebert.configuration_squeezebert import SQUEEZEBERT_PRETRAINED_CONFIG_ARCHIVE_MAP, SqueezeBertConfig
-from ..t5.configuration_t5 import T5_PRETRAINED_CONFIG_ARCHIVE_MAP, T5Config
-from ..tapas.configuration_tapas import TAPAS_PRETRAINED_CONFIG_ARCHIVE_MAP, TapasConfig
-from ..transfo_xl.configuration_transfo_xl import TRANSFO_XL_PRETRAINED_CONFIG_ARCHIVE_MAP, TransfoXLConfig
-from ..wav2vec2.configuration_wav2vec2 import WAV_2_VEC_2_PRETRAINED_CONFIG_ARCHIVE_MAP, Wav2Vec2Config
-from ..xlm.configuration_xlm import XLM_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMConfig
-from ..xlm_prophetnet.configuration_xlm_prophetnet import (
-    XLM_PROPHETNET_PRETRAINED_CONFIG_ARCHIVE_MAP,
-    XLMProphetNetConfig,
-)
-from ..xlm_roberta.configuration_xlm_roberta import XLM_ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP, XLMRobertaConfig
-from ..xlnet.configuration_xlnet import XLNET_PRETRAINED_CONFIG_ARCHIVE_MAP, XLNetConfig
+from ...configuration_utils import PreTrainedConfig
+from ...dynamic_module_utils import get_class_from_dynamic_module, resolve_trust_remote_code
+from ...utils import CONFIG_NAME, logging
+from .auto_mappings import CONFIG_MAPPING_NAMES, SPECIAL_MODEL_TYPE_TO_MODULE_NAME
 
 
-ALL_PRETRAINED_CONFIG_ARCHIVE_MAP = dict(
-    (key, value)
-    for pretrained_map in [
-        # Add archive maps here
-        SPEECH_TO_TEXT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        WAV_2_VEC_2_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        M2M_100_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        CONVBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        LED_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        BLENDERBOT_SMALL_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        BERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        BART_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        BLENDERBOT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        MBART_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        TRANSFO_XL_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        CTRL_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        XLNET_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        XLM_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        DISTILBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        T5_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        XLM_ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        FLAUBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        FSMT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        ELECTRA_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        LONGFORMER_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        RETRIBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        FUNNEL_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        LXMERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        LAYOUTLM_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        DPR_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        DEBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        DEBERTA_V2_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        SQUEEZEBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        XLM_PROPHETNET_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        PROPHETNET_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        MPNET_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        TAPAS_PRETRAINED_CONFIG_ARCHIVE_MAP,
-        IBERT_PRETRAINED_CONFIG_ARCHIVE_MAP,
-    ]
-    for key, value, in pretrained_map.items()
-)
+logger = logging.get_logger(__name__)
+
+_CallableT = TypeVar("_CallableT", bound=Callable[..., Any])
 
 
-CONFIG_MAPPING = OrderedDict(
-    [
-        # Add configs here
-        ("speech_to_text", Speech2TextConfig),
-        ("wav2vec2", Wav2Vec2Config),
-        ("m2m_100", M2M100Config),
-        ("convbert", ConvBertConfig),
-        ("led", LEDConfig),
-        ("blenderbot-small", BlenderbotSmallConfig),
-        ("retribert", RetriBertConfig),
-        ("ibert", IBertConfig),
-        ("mt5", MT5Config),
-        ("t5", T5Config),
-        ("mobilebert", MobileBertConfig),
-        ("distilbert", DistilBertConfig),
-        ("albert", AlbertConfig),
-        ("bert-generation", BertGenerationConfig),
-        ("camembert", CamembertConfig),
-        ("xlm-roberta", XLMRobertaConfig),
-        ("pegasus", PegasusConfig),
-        ("marian", MarianConfig),
-        ("mbart", MBartConfig),
-        ("mpnet", MPNetConfig),
-        ("bart", BartConfig),
-        ("blenderbot", BlenderbotConfig),
-        ("reformer", ReformerConfig),
-        ("longformer", LongformerConfig),
-        ("roberta", RobertaConfig),
-        ("deberta-v2", DebertaV2Config),
-        ("deberta", DebertaConfig),
-        ("flaubert", FlaubertConfig),
-        ("fsmt", FSMTConfig),
-        ("squeezebert", SqueezeBertConfig),
-        ("bert", BertConfig),
-        ("openai-gpt", OpenAIGPTConfig),
-        ("gpt2", GPT2Config),
-        ("transfo-xl", TransfoXLConfig),
-        ("xlnet", XLNetConfig),
-        ("xlm-prophetnet", XLMProphetNetConfig),
-        ("prophetnet", ProphetNetConfig),
-        ("xlm", XLMConfig),
-        ("ctrl", CTRLConfig),
-        ("electra", ElectraConfig),
-        ("encoder-decoder", EncoderDecoderConfig),
-        ("funnel", FunnelConfig),
-        ("lxmert", LxmertConfig),
-        ("dpr", DPRConfig),
-        ("layoutlm", LayoutLMConfig),
-        ("rag", RagConfig),
-        ("tapas", TapasConfig),
-    ]
+# Add non-standard models that can't be inferred from parsing the code
+# New models should follow consistent naming instead of being added here!
+CONFIG_MAPPING_NAMES.update(
+    {
+        "EvollaModel": "EvollaConfig",
+        "mlcd": "MLCDVisionConfig",
+        "parakeet_tdt": "ParakeetTDTConfig",
+        "vibevoice_acoustic_tokenizer_decoder": "VibeVoiceAcousticTokenizerDecoderConfig",
+        "vibevoice_acoustic_tokenizer_encoder": "VibeVoiceAcousticTokenizerEncoderConfig",
+    }
 )
 
-MODEL_NAMES_MAPPING = OrderedDict(
-    [
-        # Add full (and cased) model names here
-        ("speech_to_text", "Speech2Text"),
-        ("wav2vec2", "Wav2Vec2"),
-        ("m2m_100", "M2M100"),
-        ("convbert", "ConvBERT"),
-        ("led", "LED"),
-        ("blenderbot-small", "BlenderbotSmall"),
-        ("retribert", "RetriBERT"),
-        ("ibert", "I-BERT"),
-        ("t5", "T5"),
-        ("mobilebert", "MobileBERT"),
-        ("distilbert", "DistilBERT"),
-        ("albert", "ALBERT"),
-        ("bert-generation", "Bert Generation"),
-        ("camembert", "CamemBERT"),
-        ("xlm-roberta", "XLM-RoBERTa"),
-        ("pegasus", "Pegasus"),
-        ("blenderbot", "Blenderbot"),
-        ("marian", "Marian"),
-        ("mbart", "mBART"),
-        ("bart", "BART"),
-        ("reformer", "Reformer"),
-        ("longformer", "Longformer"),
-        ("roberta", "RoBERTa"),
-        ("flaubert", "FlauBERT"),
-        ("fsmt", "FairSeq Machine-Translation"),
-        ("squeezebert", "SqueezeBERT"),
-        ("bert", "BERT"),
-        ("openai-gpt", "OpenAI GPT"),
-        ("gpt2", "OpenAI GPT-2"),
-        ("transfo-xl", "Transformer-XL"),
-        ("xlnet", "XLNet"),
-        ("xlm", "XLM"),
-        ("ctrl", "CTRL"),
-        ("electra", "ELECTRA"),
-        ("encoder-decoder", "Encoder decoder"),
-        ("funnel", "Funnel Transformer"),
-        ("lxmert", "LXMERT"),
-        ("deberta-v2", "DeBERTa-v2"),
-        ("deberta", "DeBERTa"),
-        ("layoutlm", "LayoutLM"),
-        ("dpr", "DPR"),
-        ("rag", "RAG"),
-        ("xlm-prophetnet", "XLMProphetNet"),
-        ("prophetnet", "ProphetNet"),
-        ("mt5", "mT5"),
-        ("mpnet", "MPNet"),
-        ("tapas", "TAPAS"),
-    ]
+# TODO: depecate and remove `gpt-sw3`, old model. And prohibit mapping the same config to different model types
+# Auto-classes rely a lot on these, and it is much easier when we have 1-1 mapping
+CONFIG_MAPPING_NAMES = OrderedDict(**{"gpt-sw3": "GPT2Config"}, **CONFIG_MAPPING_NAMES)
+
+SPECIAL_MODEL_TYPE_TO_MODULE_NAME.update(
+    {
+        "EvollaModel": "evolla",
+        "parakeet_tdt": "parakeet",
+        "vibevoice_acoustic_tokenizer_encoder": "vibevoice_acoustic_tokenizer",
+        "vibevoice_acoustic_tokenizer_decoder": "vibevoice_acoustic_tokenizer",
+    }
 )
+
+# This is tied to the processing `-` -> `_` in `model_type_to_module_name`. For example, instead of putting
+# `transfo-xl` (as in `CONFIG_MAPPING_NAMES`), we should use `transfo_xl`.
+DEPRECATED_MODELS = []
+
+
+def model_type_to_module_name(key) -> str:
+    """Converts a config key to the corresponding module."""
+    # Special treatment
+    if key in SPECIAL_MODEL_TYPE_TO_MODULE_NAME:
+        key = SPECIAL_MODEL_TYPE_TO_MODULE_NAME[key]
+
+        if key in DEPRECATED_MODELS:
+            key = f"deprecated.{key}"
+        return key
+
+    key = key.replace("-", "_")
+    if key in DEPRECATED_MODELS:
+        key = f"deprecated.{key}"
+
+    return key
+
+
+def config_class_to_model_type(config) -> str | None:
+    """Converts a config class name to the corresponding model type"""
+    for key, cls in CONFIG_MAPPING_NAMES.items():
+        if cls == config:
+            return key
+    # if key not found check in extra content
+    for key, cls in CONFIG_MAPPING._extra_content.items():
+        if cls.__name__ == config:
+            return key
+    return None
+
+
+class _LazyConfigMapping(OrderedDict[str, type[PreTrainedConfig]]):
+    """
+    A dictionary that lazily load its values when they are requested.
+    """
+
+    def __init__(self, mapping) -> None:
+        self._mapping = mapping
+        self._extra_content = {}
+        self._modules = {}
+
+    def __getitem__(self, key: str) -> type[PreTrainedConfig]:
+        if key in self._extra_content:
+            return self._extra_content[key]
+        if key not in self._mapping:
+            raise KeyError(key)
+        value = self._mapping[key]
+        module_name = model_type_to_module_name(key)
+        if module_name not in self._modules:
+            self._modules[module_name] = importlib.import_module(f".{module_name}", "transformers.models")
+        if hasattr(self._modules[module_name], value):
+            return getattr(self._modules[module_name], value)
+
+        # Some of the mappings have entries model_type -> config of another model type. In that case we try to grab the
+        # object at the top level.
+        transformers_module = importlib.import_module("transformers")
+        return getattr(transformers_module, value)
+
+    def keys(self) -> list[str]:
+        return list(self._mapping.keys()) + list(self._extra_content.keys())
+
+    def values(self) -> list[type[PreTrainedConfig]]:
+        return [self[k] for k in self._mapping] + list(self._extra_content.values())
+
+    def items(self) -> list[tuple[str, type[PreTrainedConfig]]]:
+        return [(k, self[k]) for k in self._mapping] + list(self._extra_content.items())
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(list(self._mapping.keys()) + list(self._extra_content.keys()))
+
+    def __contains__(self, item: object) -> bool:
+        return item in self._mapping or item in self._extra_content
+
+    def register(self, key: str, value: type[PreTrainedConfig], exist_ok=False) -> None:
+        """
+        Register a new configuration in this mapping.
+        """
+        if key in self._mapping and not exist_ok:
+            raise ValueError(f"'{key}' is already used by a Transformers config, pick another name.")
+        self._extra_content[key] = value
+
+
+CONFIG_MAPPING = _LazyConfigMapping(CONFIG_MAPPING_NAMES)
+
+
+class _LazyLoadAllMappings(OrderedDict[str, str]):
+    """
+    A mapping that will load all pairs of key values at the first access (either by indexing, requestions keys, values,
+    etc.)
+
+    Args:
+        mapping: The mapping to load.
+    """
+
+    def __init__(self, mapping):
+        self._mapping = mapping
+        self._initialized = False
+        self._data = {}
+
+    def _initialize(self):
+        if self._initialized:
+            return
+
+        for model_type, map_name in self._mapping.items():
+            module_name = model_type_to_module_name(model_type)
+            module = importlib.import_module(f".{module_name}", "transformers.models")
+            mapping = getattr(module, map_name)
+            self._data.update(mapping)
+
+        self._initialized = True
+
+    def __getitem__(self, key):
+        self._initialize()
+        return self._data[key]
+
+    def keys(self) -> KeysView[str]:
+        self._initialize()
+        return self._data.keys()
+
+    def values(self) -> ValuesView[str]:
+        self._initialize()
+        return self._data.values()
+
+    def items(self) -> KeysView[str]:
+        self._initialize()
+        return self._data.keys()
+
+    def __iter__(self) -> Iterator[str]:
+        self._initialize()
+        return iter(self._data)
+
+    def __contains__(self, item: object) -> bool:
+        self._initialize()
+        return item in self._data
+
+
+def _get_class_name(model_class: str | list[str]):
+    if isinstance(model_class, list | tuple):
+        return " or ".join([f"[`{c}`]" for c in model_class if c is not None])
+    return f"[`{model_class}`]"
 
 
 def _list_model_options(indent, config_to_class=None, use_model_types=True):
@@ -236,32 +206,42 @@ def _list_model_options(indent, config_to_class=None, use_model_types=True):
         raise ValueError("Using `use_model_types=False` requires a `config_to_class` dictionary.")
     if use_model_types:
         if config_to_class is None:
-            model_type_to_name = {model_type: config.__name__ for model_type, config in CONFIG_MAPPING.items()}
+            model_type_to_name = {model_type: f"[`{config}`]" for model_type, config in CONFIG_MAPPING_NAMES.items()}
         else:
             model_type_to_name = {
-                model_type: config_to_class[config].__name__
-                for model_type, config in CONFIG_MAPPING.items()
-                if config in config_to_class
+                model_type: _get_class_name(model_class)
+                for model_type, model_class in config_to_class.items()
+                if model_type in CONFIG_MAPPING_NAMES
             }
         lines = [
-            f"{indent}- **{model_type}** -- :class:`~transformers.{cls_name}` ({MODEL_NAMES_MAPPING[model_type]} model)"
-            for model_type, cls_name in model_type_to_name.items()
+            f"{indent}- **{model_type}** -- {model_type_to_name[model_type]} ({CONFIG_MAPPING_NAMES[model_type]} model)"
+            for model_type in sorted(model_type_to_name.keys())
         ]
     else:
-        config_to_name = {config.__name__: clas.__name__ for config, clas in config_to_class.items()}
+        config_to_name = {
+            CONFIG_MAPPING_NAMES[config]: _get_class_name(clas)
+            for config, clas in config_to_class.items()
+            if config in CONFIG_MAPPING_NAMES
+        }
         config_to_model_name = {
-            config.__name__: MODEL_NAMES_MAPPING[model_type] for model_type, config in CONFIG_MAPPING.items()
+            config: CONFIG_MAPPING_NAMES[model_type] for model_type, config in CONFIG_MAPPING_NAMES.items()
         }
         lines = [
-            f"{indent}- :class:`~transformers.{config_name}` configuration class: :class:`~transformers.{cls_name}` ({config_to_model_name[config_name]} model)"
-            for config_name, cls_name in config_to_name.items()
+            f"{indent}- [`{config_name}`] configuration class:"
+            f" {config_to_name[config_name]} ({config_to_model_name[config_name]} model)"
+            for config_name in sorted(config_to_name.keys())
         ]
     return "\n".join(lines)
 
 
-def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True):
+def replace_list_option_in_docstrings(
+    config_to_class=None, use_model_types: bool = True
+) -> Callable[[_CallableT], _CallableT]:
     def docstring_decorator(fn):
         docstrings = fn.__doc__
+        if docstrings is None:
+            # Example: -OO
+            return fn
         lines = docstrings.split("\n")
         i = 0
         while i < len(lines) and re.search(r"^(\s*)List options\s*$", lines[i]) is None:
@@ -274,7 +254,8 @@ def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True
             docstrings = "\n".join(lines)
         else:
             raise ValueError(
-                f"The function {fn} should have an empty 'List options' in its docstring as placeholder, current docstring is:\n{docstrings}"
+                f"The function {fn} should have an empty 'List options' in its docstring as placeholder, current"
+                f" docstring is:\n{docstrings}"
             )
         fn.__doc__ = docstrings
         return fn
@@ -285,117 +266,179 @@ def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True
 class AutoConfig:
     r"""
     This is a generic configuration class that will be instantiated as one of the configuration classes of the library
-    when created with the :meth:`~transformers.AutoConfig.from_pretrained` class method.
+    when created with the [`~AutoConfig.from_pretrained`] class method.
 
-    This class cannot be instantiated directly using ``__init__()`` (throws an error).
+    This class cannot be instantiated directly using `__init__()` (throws an error).
     """
 
-    def __init__(self):
-        raise EnvironmentError(
+    def __init__(self) -> None:
+        raise OSError(
             "AutoConfig is designed to be instantiated "
             "using the `AutoConfig.from_pretrained(pretrained_model_name_or_path)` method."
         )
 
     @classmethod
-    def for_model(cls, model_type: str, *args, **kwargs):
+    def for_model(cls, model_type: str, *args, **kwargs) -> PreTrainedConfig:
         if model_type in CONFIG_MAPPING:
             config_class = CONFIG_MAPPING[model_type]
             return config_class(*args, **kwargs)
         raise ValueError(
-            "Unrecognized model identifier: {}. Should contain one of {}".format(
-                model_type, ", ".join(CONFIG_MAPPING.keys())
-            )
+            f"Unrecognized model identifier: {model_type}. Should contain one of {', '.join(CONFIG_MAPPING.keys())}"
         )
 
     @classmethod
     @replace_list_option_in_docstrings()
-    def from_pretrained(cls, pretrained_model_name_or_path, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path: str | os.PathLike[str], **kwargs):
         r"""
         Instantiate one of the configuration classes of the library from a pretrained model configuration.
 
-        The configuration class to instantiate is selected based on the :obj:`model_type` property of the config object
-        that is loaded, or when it's missing, by falling back to using pattern matching on
-        :obj:`pretrained_model_name_or_path`:
+        The configuration class to instantiate is selected based on the `model_type` property of the config object that
+        is loaded, or when it's missing, by falling back to using pattern matching on `pretrained_model_name_or_path`:
 
         List options
 
         Args:
-            pretrained_model_name_or_path (:obj:`str` or :obj:`os.PathLike`):
+            pretrained_model_name_or_path (`str` or `os.PathLike`):
                 Can be either:
 
-                    - A string, the `model id` of a pretrained model configuration hosted inside a model repo on
-                      huggingface.co. Valid model ids can be located at the root-level, like ``bert-base-uncased``, or
-                      namespaced under a user or organization name, like ``dbmdz/bert-base-german-cased``.
-                    - A path to a `directory` containing a configuration file saved using the
-                      :meth:`~transformers.PretrainedConfig.save_pretrained` method, or the
-                      :meth:`~transformers.PreTrainedModel.save_pretrained` method, e.g., ``./my_model_directory/``.
-                    - A path or url to a saved configuration JSON `file`, e.g.,
-                      ``./my_model_directory/configuration.json``.
-            cache_dir (:obj:`str` or :obj:`os.PathLike`, `optional`):
+                    - A string, the *model id* of a pretrained model configuration hosted inside a model repo on
+                      huggingface.co.
+                    - A path to a *directory* containing a configuration file saved using the
+                      [`~PreTrainedConfig.save_pretrained`] method, or the [`~PreTrainedModel.save_pretrained`] method,
+                      e.g., `./my_model_directory/`.
+                    - a path to a saved configuration JSON *file*, e.g.,
+                      `./my_model_directory/configuration.json`.
+            cache_dir (`str` or `os.PathLike`, *optional*):
                 Path to a directory in which a downloaded pretrained model configuration should be cached if the
                 standard cache should not be used.
-            force_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
+            force_download (`bool`, *optional*, defaults to `False`):
                 Whether or not to force the (re-)download the model weights and configuration files and override the
                 cached versions if they exist.
-            resume_download (:obj:`bool`, `optional`, defaults to :obj:`False`):
-                Whether or not to delete incompletely received files. Will attempt to resume the download if such a
-                file exists.
-            proxies (:obj:`Dict[str, str]`, `optional`):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g., :obj:`{'http': 'foo.bar:3128',
+            proxies (`dict[str, str]`, *optional*):
+                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
                 'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
-            revision(:obj:`str`, `optional`, defaults to :obj:`"main"`):
+            revision (`str`, *optional*, defaults to `"main"`):
                 The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-                git-based system for storing models and other artifacts on huggingface.co, so ``revision`` can be any
+                git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
                 identifier allowed by git.
-            return_unused_kwargs (:obj:`bool`, `optional`, defaults to :obj:`False`):
-                If :obj:`False`, then this function returns just the final configuration object.
+            return_unused_kwargs (`bool`, *optional*, defaults to `False`):
+                If `False`, then this function returns just the final configuration object.
 
-                If :obj:`True`, then this functions returns a :obj:`Tuple(config, unused_kwargs)` where `unused_kwargs`
-                is a dictionary consisting of the key/value pairs whose keys are not configuration attributes: i.e.,
-                the part of ``kwargs`` which has not been used to update ``config`` and is otherwise ignored.
-            kwargs(additional keyword arguments, `optional`):
+                If `True`, then this functions returns a `Tuple(config, unused_kwargs)` where *unused_kwargs* is a
+                dictionary consisting of the key/value pairs whose keys are not configuration attributes: i.e., the
+                part of `kwargs` which has not been used to update `config` and is otherwise ignored.
+            trust_remote_code (`bool`, *optional*, defaults to `False`):
+                Whether or not to allow for custom models defined on the Hub in their own modeling files. This option
+                should only be set to `True` for repositories you trust and in which you have read the code, as it will
+                execute code present on the Hub on your local machine.
+            kwargs(additional keyword arguments, *optional*):
                 The values in kwargs of any keys which are configuration attributes will be used to override the loaded
                 values. Behavior concerning key/value pairs whose keys are *not* configuration attributes is controlled
-                by the ``return_unused_kwargs`` keyword parameter.
+                by the `return_unused_kwargs` keyword parameter.
 
-        Examples::
+        Examples:
 
-            >>> from transformers import AutoConfig
+        ```python
+        >>> from transformers import AutoConfig
 
-            >>> # Download configuration from huggingface.co and cache.
-            >>> config = AutoConfig.from_pretrained('bert-base-uncased')
+        >>> # Download configuration from huggingface.co and cache.
+        >>> config = AutoConfig.from_pretrained("google-bert/bert-base-uncased")
 
-            >>> # Download configuration from huggingface.co (user-uploaded) and cache.
-            >>> config = AutoConfig.from_pretrained('dbmdz/bert-base-german-cased')
+        >>> # Download configuration from huggingface.co (user-uploaded) and cache.
+        >>> config = AutoConfig.from_pretrained("dbmdz/bert-base-german-cased")
 
-            >>> # If configuration file is in a directory (e.g., was saved using `save_pretrained('./test/saved_model/')`).
-            >>> config = AutoConfig.from_pretrained('./test/bert_saved_model/')
+        >>> # If configuration file is in a directory (e.g., was saved using *save_pretrained('./test/saved_model/')*).
+        >>> config = AutoConfig.from_pretrained("./test/bert_saved_model/")
 
-            >>> # Load a specific configuration file.
-            >>> config = AutoConfig.from_pretrained('./test/bert_saved_model/my_configuration.json')
+        >>> # Load a specific configuration file.
+        >>> config = AutoConfig.from_pretrained("./test/bert_saved_model/my_configuration.json")
 
-            >>> # Change some config attributes when loading a pretrained config.
-            >>> config = AutoConfig.from_pretrained('bert-base-uncased', output_attentions=True, foo=False)
-            >>> config.output_attentions
-            True
-            >>> config, unused_kwargs = AutoConfig.from_pretrained('bert-base-uncased', output_attentions=True, foo=False, return_unused_kwargs=True)
-            >>> config.output_attentions
-            True
-            >>> config.unused_kwargs
-            {'foo': False}
+        >>> # Change some config attributes when loading a pretrained config.
+        >>> config = AutoConfig.from_pretrained("google-bert/bert-base-uncased", output_attentions=True, foo=False)
+        >>> config.output_attentions
+        True
+
+        >>> config, unused_kwargs = AutoConfig.from_pretrained(
+        ...     "google-bert/bert-base-uncased", output_attentions=True, foo=False, return_unused_kwargs=True
+        ... )
+        >>> config.output_attentions
+        True
+
+        >>> unused_kwargs
+        {'foo': False}
+        ```
         """
-        config_dict, _ = PretrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
-        if "model_type" in config_dict:
-            config_class = CONFIG_MAPPING[config_dict["model_type"]]
-            return config_class.from_dict(config_dict, **kwargs)
-        else:
-            # Fallback: use pattern matching on the string.
-            for pattern, config_class in CONFIG_MAPPING.items():
-                if pattern in str(pretrained_model_name_or_path):
-                    return config_class.from_dict(config_dict, **kwargs)
+        kwargs["_from_auto"] = True
+        kwargs["name_or_path"] = pretrained_model_name_or_path
+        trust_remote_code = kwargs.pop("trust_remote_code", None)
+        code_revision = kwargs.pop("code_revision", None)
+
+        config_dict, unused_kwargs = PreTrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
+        has_remote_code = "auto_map" in config_dict and "AutoConfig" in config_dict["auto_map"]
+        has_local_code = "model_type" in config_dict and config_dict["model_type"] in CONFIG_MAPPING
+        explicit_local_code = has_local_code and not CONFIG_MAPPING[config_dict["model_type"]].__module__.startswith(
+            "transformers."
+        )
+        if has_remote_code:
+            class_ref = config_dict["auto_map"]["AutoConfig"]
+            if "--" in class_ref:
+                upstream_repo = class_ref.split("--")[0]
+            else:
+                upstream_repo = None
+            trust_remote_code = resolve_trust_remote_code(
+                trust_remote_code, pretrained_model_name_or_path, has_local_code, has_remote_code, upstream_repo
+            )
+
+        if has_remote_code and trust_remote_code and not explicit_local_code:
+            config_class = get_class_from_dynamic_module(
+                class_ref, pretrained_model_name_or_path, code_revision=code_revision, **kwargs
+            )
+            config_class.register_for_auto_class()
+            return config_class.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        elif "model_type" in config_dict:
+            # Apply heuristic: if model_type is mistral but layer_types is present, treat as ministral
+            if config_dict["model_type"] == "mistral" and "layer_types" in config_dict:
+                logger.info(
+                    "Detected mistral model with layer_types, treating as ministral for alternating attention compatibility. "
+                )
+                config_dict["model_type"] = "ministral"
+
+            try:
+                config_class = CONFIG_MAPPING[config_dict["model_type"]]
+            except KeyError:
+                raise ValueError(
+                    f"The checkpoint you are trying to load has model type `{config_dict['model_type']}` "
+                    "but Transformers does not recognize this architecture. This could be because of an "
+                    "issue with the checkpoint, or because your version of Transformers is out of date.\n\n"
+                    "You can update Transformers with the command `pip install --upgrade transformers`. If this "
+                    "does not work, and the checkpoint is very new, then there may not be a release version "
+                    "that supports this model yet. In this case, you can get the most up-to-date code by installing "
+                    "Transformers from source with the command "
+                    "`pip install git+https://github.com/huggingface/transformers.git`"
+                )
+            return config_class.from_dict(config_dict, **unused_kwargs)
 
         raise ValueError(
-            "Unrecognized model in {}. "
-            "Should have a `model_type` key in its config.json, or contain one of the following strings "
-            "in its name: {}".format(pretrained_model_name_or_path, ", ".join(CONFIG_MAPPING.keys()))
+            f"Unrecognized model in {pretrained_model_name_or_path}. "
+            f"Should have a `model_type` key in its {CONFIG_NAME}."
         )
+
+    @staticmethod
+    def register(model_type, config, exist_ok=False) -> None:
+        """
+        Register a new configuration for this class.
+
+        Args:
+            model_type (`str`): The model type like "bert" or "gpt".
+            config ([`PreTrainedConfig`]): The config to register.
+        """
+        if issubclass(config, PreTrainedConfig) and config.model_type != model_type:
+            raise ValueError(
+                "The config you are passing has a `model_type` attribute that is not consistent with the model type "
+                f"you passed (config has {config.model_type} and you passed {model_type}. Fix one of those so they "
+                "match!"
+            )
+        CONFIG_MAPPING.register(model_type, config, exist_ok=exist_ok)
+
+
+__all__ = ["CONFIG_MAPPING", "AutoConfig"]

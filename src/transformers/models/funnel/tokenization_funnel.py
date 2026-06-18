@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Tokenization class for Funnel Transformer."""
+"""Tokenization class for Funnel Transformer."""
 
-from typing import List, Optional
+from tokenizers import Tokenizer, decoders, normalizers, pre_tokenizers, processors
+from tokenizers.models import WordPiece
 
+from ...tokenization_utils_tokenizers import TokenizersBackend
 from ...utils import logging
-from ..bert.tokenization_bert import BertTokenizer
 
 
 logger = logging.get_logger(__name__)
@@ -37,63 +37,107 @@ _model_names = [
     "xlarge-base",
 ]
 
-PRETRAINED_VOCAB_FILES_MAP = {
-    "vocab_file": {
-        "funnel-transformer/small": "https://huggingface.co/funnel-transformer/small/resolve/main/vocab.txt",
-        "funnel-transformer/small-base": "https://huggingface.co/funnel-transformer/small-base/resolve/main/vocab.txt",
-        "funnel-transformer/medium": "https://huggingface.co/funnel-transformer/medium/resolve/main/vocab.txt",
-        "funnel-transformer/medium-base": "https://huggingface.co/funnel-transformer/medium-base/resolve/main/vocab.txt",
-        "funnel-transformer/intermediate": "https://huggingface.co/funnel-transformer/intermediate/resolve/main/vocab.txt",
-        "funnel-transformer/intermediate-base": "https://huggingface.co/funnel-transformer/intermediate-base/resolve/main/vocab.txt",
-        "funnel-transformer/large": "https://huggingface.co/funnel-transformer/large/resolve/main/vocab.txt",
-        "funnel-transformer/large-base": "https://huggingface.co/funnel-transformer/large-base/resolve/main/vocab.txt",
-        "funnel-transformer/xlarge": "https://huggingface.co/funnel-transformer/xlarge/resolve/main/vocab.txt",
-        "funnel-transformer/xlarge-base": "https://huggingface.co/funnel-transformer/xlarge-base/resolve/main/vocab.txt",
-    }
-}
-PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {f"funnel-transformer/{name}": 512 for name in _model_names}
-PRETRAINED_INIT_CONFIGURATION = {f"funnel-transformer/{name}": {"do_lower_case": True} for name in _model_names}
 
-
-class FunnelTokenizer(BertTokenizer):
+class FunnelTokenizer(TokenizersBackend):
     r"""
-    Construct a Funnel Transformer tokenizer.
+    Construct a Funnel Transformer tokenizer (backed by HuggingFace's tokenizers library). Based on WordPiece.
 
-    :class:`~transformers.FunnelTokenizer` is identical to :class:`~transformers.BertTokenizer` and runs end-to-end
-    tokenization: punctuation splitting and wordpiece.
+    This tokenizer inherits from [`TokenizersBackend`] which contains most of the main methods. Users should
+    refer to this superclass for more information regarding those methods.
 
-    Refer to superclass :class:`~transformers.BertTokenizer` for usage examples and documentation concerning
-    parameters.
+    Args:
+        vocab_file (`str`):
+            File containing the vocabulary.
+        do_lower_case (`bool`, *optional*, defaults to `True`):
+            Whether or not to lowercase the input when tokenizing.
+        unk_token (`str`, *optional*, defaults to `"<unk>"`):
+            The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
+            token instead.
+        sep_token (`str`, *optional*, defaults to `"<sep>"`):
+            The separator token, which is used when building a sequence from multiple sequences, e.g. two sequences for
+            sequence classification or for a text and a question for question answering. It is also used as the last
+            token of a sequence built with special tokens.
+        pad_token (`str`, *optional*, defaults to `"<pad>"`):
+            The token used for padding, for example when batching sequences of different lengths.
+        cls_token (`str`, *optional*, defaults to `"<cls>"`):
+            The classifier token which is used when doing sequence classification (classification of the whole sequence
+            instead of per-token classification). It is the first token of the sequence when built with special tokens.
+        mask_token (`str`, *optional*, defaults to `"<mask>"`):
+            The token used for masking values. This is the token used when training this model with masked language
+            modeling. This is the token which the model will try to predict.
+        clean_text (`bool`, *optional*, defaults to `True`):
+            Whether or not to clean the text before tokenization by removing any control characters and replacing all
+            whitespaces by the classic one.
+        tokenize_chinese_chars (`bool`, *optional*, defaults to `True`):
+            Whether or not to tokenize Chinese characters. This should likely be deactivated for Japanese (see [this
+            issue](https://github.com/huggingface/transformers/issues/328)).
+        bos_token (`str`, `optional`, defaults to `"<s>"`):
+            The beginning of sentence token.
+        eos_token (`str`, `optional`, defaults to `"</s>"`):
+            The end of sentence token.
+        strip_accents (`bool`, *optional*):
+            Whether or not to strip all accents. If this option is not specified, then it will be determined by the
+            value for `lowercase` (as in the original BERT).
+        wordpieces_prefix (`str`, *optional*, defaults to `"##"`):
+            The prefix for subwords.
+        vocab (`str` or `dict[str, int]`, *optional*):
+            Custom vocabulary dictionary.
     """
 
     vocab_files_names = VOCAB_FILES_NAMES
-    pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
-    max_model_input_sizes = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
-    pretrained_init_configuration = PRETRAINED_INIT_CONFIGURATION
+    model = WordPiece
     cls_token_type_id: int = 2
 
     def __init__(
         self,
-        vocab_file,
-        do_lower_case=True,
-        do_basic_tokenize=True,
-        never_split=None,
-        unk_token="<unk>",
-        sep_token="<sep>",
-        pad_token="<pad>",
-        cls_token="<cls>",
-        mask_token="<mask>",
-        bos_token="<s>",
-        eos_token="</s>",
-        tokenize_chinese_chars=True,
-        strip_accents=None,
-        **kwargs
+        vocab: str | dict[str, int] | None = None,
+        do_lower_case: bool = True,
+        unk_token: str = "<unk>",
+        sep_token: str = "<sep>",
+        pad_token: str = "<pad>",
+        cls_token: str = "<cls>",
+        mask_token: str = "<mask>",
+        bos_token: str = "<s>",
+        eos_token: str = "</s>",
+        clean_text: bool = True,
+        tokenize_chinese_chars: bool = True,
+        strip_accents: bool | None = None,
+        wordpieces_prefix: str = "##",
+        **kwargs,
     ):
+        self.do_lower_case = do_lower_case
+        self.tokenize_chinese_chars = tokenize_chinese_chars
+        self.strip_accents = strip_accents
+        self.clean_text = clean_text
+        self.wordpieces_prefix = wordpieces_prefix
+
+        self._vocab = (
+            vocab
+            if vocab is not None
+            else {
+                str(pad_token): 0,
+                str(unk_token): 1,
+                str(cls_token): 2,
+                str(sep_token): 3,
+                str(mask_token): 4,
+                str(bos_token): 5,
+                str(eos_token): 6,
+            }
+        )
+
+        self._tokenizer = Tokenizer(WordPiece(self._vocab, unk_token=str(unk_token)))
+
+        self._tokenizer.normalizer = normalizers.BertNormalizer(
+            clean_text=clean_text,
+            handle_chinese_chars=tokenize_chinese_chars,
+            strip_accents=strip_accents,
+            lowercase=do_lower_case,
+        )
+        self._tokenizer.pre_tokenizer = pre_tokenizers.BertPreTokenizer()
+        self._tokenizer.decoder = decoders.WordPiece(prefix=wordpieces_prefix)
+
         super().__init__(
-            vocab_file,
             do_lower_case=do_lower_case,
-            do_basic_tokenize=do_basic_tokenize,
-            never_split=never_split,
             unk_token=unk_token,
             sep_token=sep_token,
             pad_token=pad_token,
@@ -101,37 +145,20 @@ class FunnelTokenizer(BertTokenizer):
             mask_token=mask_token,
             bos_token=bos_token,
             eos_token=eos_token,
+            clean_text=clean_text,
             tokenize_chinese_chars=tokenize_chinese_chars,
             strip_accents=strip_accents,
+            wordpieces_prefix=wordpieces_prefix,
             **kwargs,
         )
+        self._tokenizer.post_processor = processors.TemplateProcessing(
+            single=f"{cls_token}:2 $A:0 {sep_token}:0",  # token_type_id is 2 for Funnel transformer
+            pair=f"{cls_token}:2 $A:0 {sep_token}:0 $B:1 {sep_token}:1",
+            special_tokens=[
+                (str(cls_token), self.cls_token_id),
+                (str(sep_token), self.sep_token_id),
+            ],
+        )
 
-    def create_token_type_ids_from_sequences(
-        self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
-    ) -> List[int]:
-        """
-        Create a mask from the two sequences passed to be used in a sequence-pair classification task. A Funnel
-        Transformer sequence pair mask has the following format:
 
-        ::
-
-            2 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-            | first sequence    | second sequence |
-
-        If :obj:`token_ids_1` is :obj:`None`, this method only returns the first portion of the mask (0s).
-
-        Args:
-            token_ids_0 (:obj:`List[int]`):
-                List of IDs.
-            token_ids_1 (:obj:`List[int]`, `optional`):
-                Optional second list of IDs for sequence pairs.
-
-        Returns:
-            :obj:`List[int]`: List of `token type IDs <../glossary.html#token-type-ids>`_ according to the given
-            sequence(s).
-        """
-        sep = [self.sep_token_id]
-        cls = [self.cls_token_id]
-        if token_ids_1 is None:
-            return len(cls) * [self.cls_token_type_id] + len(token_ids_0 + sep) * [0]
-        return len(cls) * [self.cls_token_type_id] + len(token_ids_0 + sep) * [0] + len(token_ids_1 + sep) * [1]
+__all__ = ["FunnelTokenizer"]

@@ -1,5 +1,4 @@
-# coding=utf-8
-# Copyright 2018 The HuggingFace Inc. team.
+# Copyright The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,44 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tokenization classes for ConvBERT."""
-from ...utils import logging
-from ..bert.tokenization_bert import BertTokenizer
 
-
-logger = logging.get_logger(__name__)
-
-VOCAB_FILES_NAMES = {"vocab_file": "vocab.txt"}
-
-PRETRAINED_VOCAB_FILES_MAP = {
-    "vocab_file": {
-        "YituTech/conv-bert-base": "https://huggingface.co/YituTech/conv-bert-base/resolve/main/vocab.txt",
-        "YituTech/conv-bert-medium-small": "https://huggingface.co/YituTech/conv-bert-medium-small/resolve/main/vocab.txt",
-        "YituTech/conv-bert-small": "https://huggingface.co/YituTech/conv-bert-small/resolve/main/vocab.txt",
-    }
-}
-
-PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
-    "YituTech/conv-bert-base": 512,
-    "YituTech/conv-bert-medium-small": 512,
-    "YituTech/conv-bert-small": 512,
-}
-
-
-PRETRAINED_INIT_CONFIGURATION = {
-    "YituTech/conv-bert-base": {"do_lower_case": True},
-    "YituTech/conv-bert-medium-small": {"do_lower_case": True},
-    "YituTech/conv-bert-small": {"do_lower_case": True},
-}
+from ...models.bert.tokenization_bert import BertTokenizer
 
 
 class ConvBertTokenizer(BertTokenizer):
     r"""
-    Construct a ConvBERT tokenizer. :class:`~transformers.ConvBertTokenizer` is identical to
-    :class:`~transformers.BertTokenizer` and runs end-to-end tokenization: punctuation splitting and wordpiece. Refer
-    to superclass :class:`~transformers.BertTokenizer` for usage examples and documentation concerning parameters.
+    Construct a ConvBERT tokenizer (backed by HuggingFace's tokenizers library). Based on WordPiece.
+
+    This tokenizer inherits from [`BertTokenizer`] which contains most of the main methods. Users should
+    refer to this superclass for more information regarding those methods.
     """
 
-    vocab_files_names = VOCAB_FILES_NAMES
-    pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
-    max_model_input_sizes = PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES
-    pretrained_init_configuration = PRETRAINED_INIT_CONFIGURATION
+    pass
+
+
+__all__ = ["ConvBertTokenizer"]

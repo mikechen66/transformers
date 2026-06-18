@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +17,7 @@ import argparse
 
 import torch
 
-from transformers import BartConfig, BartForConditionalGeneration
+from transformers import BlenderbotConfig, BlenderbotForConditionalGeneration
 from transformers.utils import logging
 
 
@@ -79,10 +78,10 @@ def convert_parlai_checkpoint(checkpoint_path, pytorch_dump_folder_path, config_
     """
     Copy/paste/tweak model's weights to our BERT structure.
     """
-    model = torch.load(checkpoint_path, map_location="cpu")
+    model = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     sd = model["model"]
-    cfg = BartConfig.from_json_file(config_json_path)
-    m = BartForConditionalGeneration(cfg)
+    cfg = BlenderbotConfig.from_json_file(config_json_path)
+    m = BlenderbotForConditionalGeneration(cfg)
     valid_keys = m.model.state_dict().keys()
     failures = []
     mapping = {}

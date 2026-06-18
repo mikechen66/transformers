@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,15 +13,18 @@
 # limitations under the License.
 """Convert Reformer checkpoint."""
 
-
 import argparse
+import os
 import pickle
 
 import numpy as np
 import torch
+from torch import nn
 
 from transformers import ReformerConfig, ReformerModelWithLMHead
 from transformers.utils import logging
+
+from ...utils import strtobool
 
 
 logging.set_verbosity_info()
@@ -30,11 +32,11 @@ logging.set_verbosity_info()
 
 def set_param(torch_layer, weight, bias=None):
     # set parameter of one layer
-    assert torch_layer.weight.shape == weight.shape, "{} layer.weight does not match".format(torch_layer)
-    torch_layer.weight = torch.nn.Parameter(weight)
+    assert torch_layer.weight.shape == weight.shape, f"{torch_layer} layer.weight does not match"
+    torch_layer.weight = nn.Parameter(weight)
     if bias is not None:
-        assert torch_layer.bias.shape == bias.shape, "{} layer.bias does not match".format(torch_layer)
-        torch_layer.bias = torch.nn.Parameter(bias)
+        assert torch_layer.bias.shape == bias.shape, f"{torch_layer} layer.bias does not match"
+        torch_layer.bias = nn.Parameter(bias)
 
 
 def set_layer_weights_in_torch_lsh(weights, torch_layer, hidden_size):
@@ -150,15 +152,15 @@ def set_model_weights_in_torch(weights, torch_model, hidden_size):
         position_embeddings = torch_model_reformer.embeddings.position_embeddings
         for emb_idx in range(len(position_embeddings.weights)):
             emb_weights = np.asarray(weights[3][emb_idx][0])
-            assert position_embeddings.weights[emb_idx].shape == emb_weights.shape, "{} emb does not match".format(
-                position_embeddings[emb_idx]
+            assert position_embeddings.weights[emb_idx].shape == emb_weights.shape, (
+                f"{position_embeddings[emb_idx]} emb does not match"
             )
-            position_embeddings.weights[emb_idx] = torch.nn.Parameter(torch.tensor(emb_weights))
+            position_embeddings.weights[emb_idx] = nn.Parameter(torch.tensor(emb_weights))
 
     trax_layer_weights = weights[5]
-    assert len(torch_model_reformer.encoder.layers) * 4 == len(
-        trax_layer_weights
-    ), "HF and trax model do not have the same number of layers"
+    assert len(torch_model_reformer.encoder.layers) * 4 == len(trax_layer_weights), (
+        "HF and trax model do not have the same number of layers"
+    )
     for layer_idx, layer in enumerate(torch_model_reformer.encoder.layers):
         block_weights = trax_layer_weights[4 * layer_idx : 4 * (layer_idx + 1)]
         set_block_weights_in_torch(block_weights, layer, hidden_size)
@@ -185,16 +187,23 @@ def set_model_weights_in_torch(weights, torch_model, hidden_size):
 def convert_trax_checkpoint_to_pytorch(trax_model_pkl_path, config_file, pytorch_dump_path):
     # Initialise PyTorch model
     config = ReformerConfig.from_json_file(config_file)
-    print("Building PyTorch model from configuration: {}".format(str(config)))
+    print(f"Building PyTorch model from configuration: {config}")
     model = ReformerModelWithLMHead(config)
 
+    if not strtobool(os.environ.get("TRUST_REMOTE_CODE", "False")):
+        raise ValueError(
+            "This part uses `pickle.load` which is insecure and will execute arbitrary code that is potentially "
+            "malicious. It's recommended to never unpickle data that could have come from an untrusted source, or "
+            "that could have been tampered with. If you already verified the pickle data and decided to use it, "
+            "you can set the environment variable `TRUST_REMOTE_CODE` to `True` to allow it."
+        )
     with open(trax_model_pkl_path, "rb") as f:
         model_weights = pickle.load(f)["weights"]
 
     set_model_weights_in_torch(model_weights, model, config.hidden_size)
 
     # Save pytorch-model
-    print("Save PyTorch model to {}".format(pytorch_dump_path))
+    print(f"Save PyTorch model to {pytorch_dump_path}")
     torch.save(model.state_dict(), pytorch_dump_path)
 
 
@@ -202,15 +211,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # Required parameters
     parser.add_argument(
-        "--trax_model_pkl_path", default=None, type=str, required=True, help="Path to the TensorFlow checkpoint path."
+        "--trax_model_pkl_path",
+        default=None,
+        type=str,
+        required=True,
+        help="Path to the TensorFlow checkpoint path.\n"
+        "Given the files are in the pickle format, please be wary of passing it files you trust.",
     )
     parser.add_argument(
         "--config_file",
         default=None,
         type=str,
         required=True,
-        help="The config json file corresponding to the pre-trained Reformer model. \n"
-        "This specifies the model architecture.",
+        help=(
+            "The config json file corresponding to the pre-trained Reformer model. \n"
+            "This specifies the model architecture."
+        ),
     )
     parser.add_argument(
         "--pytorch_dump_path", default=None, type=str, required=True, help="Path to the output PyTorch model."

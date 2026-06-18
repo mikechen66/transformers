@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
 # Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -13,28 +12,55 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" XLM-RoBERTa configuration """
+"""XLM-RoBERTa configuration"""
 
-from ...utils import logging
-from ..roberta.configuration_roberta import RobertaConfig
+from huggingface_hub.dataclasses import strict
 
-
-logger = logging.get_logger(__name__)
-
-XLM_ROBERTA_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "xlm-roberta-base": "https://huggingface.co/xlm-roberta-base/resolve/main/config.json",
-    "xlm-roberta-large": "https://huggingface.co/xlm-roberta-large/resolve/main/config.json",
-    "xlm-roberta-large-finetuned-conll02-dutch": "https://huggingface.co/xlm-roberta-large-finetuned-conll02-dutch/resolve/main/config.json",
-    "xlm-roberta-large-finetuned-conll02-spanish": "https://huggingface.co/xlm-roberta-large-finetuned-conll02-spanish/resolve/main/config.json",
-    "xlm-roberta-large-finetuned-conll03-english": "https://huggingface.co/xlm-roberta-large-finetuned-conll03-english/resolve/main/config.json",
-    "xlm-roberta-large-finetuned-conll03-german": "https://huggingface.co/xlm-roberta-large-finetuned-conll03-german/resolve/main/config.json",
-}
+from ...configuration_utils import PreTrainedConfig
+from ...utils import auto_docstring
 
 
-class XLMRobertaConfig(RobertaConfig):
-    """
-    This class overrides :class:`~transformers.RobertaConfig`. Please check the superclass for the appropriate
-    documentation alongside usage examples.
-    """
+@auto_docstring(checkpoint="FacebookAI/xlm-mlm-en-2048")
+@strict
+class XLMRobertaConfig(PreTrainedConfig):
+    r"""
+    Examples:
+
+    ```python
+    >>> from transformers import XLMRobertaConfig, XLMRobertaModel
+
+    >>> # Initializing a XLM-RoBERTa FacebookAI/xlm-roberta-base style configuration
+    >>> configuration = XLMRobertaConfig()
+
+    >>> # Initializing a model (with random weights) from the FacebookAI/xlm-roberta-base style configuration
+    >>> model = XLMRobertaModel(configuration)
+
+    >>> # Accessing the model configuration
+    >>> configuration = model.config
+    ```"""
 
     model_type = "xlm-roberta"
+
+    vocab_size: int = 30522
+    hidden_size: int = 768
+    num_hidden_layers: int = 12
+    num_attention_heads: int = 12
+    intermediate_size: int = 3072
+    hidden_act: str = "gelu"
+    hidden_dropout_prob: float | int = 0.1
+    attention_probs_dropout_prob: float | int = 0.1
+    max_position_embeddings: int = 512
+    type_vocab_size: int = 2
+    initializer_range: float = 0.02
+    layer_norm_eps: float = 1e-12
+    pad_token_id: int | None = 1
+    bos_token_id: int | None = 0
+    eos_token_id: int | list[int] | None = 2
+    use_cache: bool = True
+    classifier_dropout: float | int | None = None
+    is_decoder: bool = False
+    add_cross_attention: bool = False
+    tie_word_embeddings: bool = True
+
+
+__all__ = ["XLMRobertaConfig"]

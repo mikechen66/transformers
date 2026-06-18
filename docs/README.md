@@ -14,287 +14,176 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Generating the documentation
+# Writing docs
 
-To generate the documentation, you first have to build it. Several packages are necessary to build the doc,
-you can install them with the following command, at the root of the code repository:
+The Transformers docs live under `docs/source/<lang>/` and are built with [doc-builder](https://github.com/huggingface/doc-builder).
 
-```bash
-pip install -e ".[docs]"
-```
+> [!TIP]
+> You usually don't need to build the docs locally. When you open a PR that touches files under `docs/`, a bot builds a preview and posts the link as a comment on the PR.
 
----
-**NOTE**
+Build locally for a faster iteration loop, or while drafting changes before you open a PR.
 
-You only need to generate the documentation to inspect it locally (if you're planning changes and want to
-check how they look like before committing for instance). You don't have to commit the built documentation.
+## Building and previewing locally
 
----
-
-## Packages installed
-
-Here's an overview of all the packages installed. If you ran the previous command installing all packages from
-`requirements.txt`, you do not need to run the following commands.
-
-Building it requires the package `sphinx` that you can
-install using:
+Install the quality dependencies and [doc-builder](https://github.com/huggingface/doc-builder) from the root of the repository. The `[quality]` extra is enough for docs-only work. Use `[dev]` if your change also needs the full development dependency set.
 
 ```bash
-pip install -U sphinx
+pip install -e ".[quality]"
+pip install git+https://github.com/huggingface/doc-builder
 ```
 
-You would also need the custom installed [theme](https://github.com/readthedocs/sphinx_rtd_theme) by
-[Read The Docs](https://readthedocs.org/). You can install it using the following command:
+To build the Markdown files into a temporary folder you can inspect in any Markdown editor:
 
 ```bash
-pip install sphinx_rtd_theme
+doc-builder build transformers docs/source/en/ --build_dir ~/tmp/test-build
 ```
 
-The third necessary package is the `recommonmark` package to accept Markdown as well as Restructured text:
+To live-preview the docs in a browser at [http://localhost:5173](http://localhost:5173), install [watchdog](https://github.com/gorakhargosh/watchdog) and run `preview`:
 
 ```bash
-pip install recommonmark
+pip install watchdog
+doc-builder preview transformers docs/source/en/
 ```
 
-## Building the documentation
+> [!WARNING]
+> `preview` only picks up files that exist when it starts. After you add a brand-new page, update `_toctree.yml` and restart `preview`.
 
-Once you have setup `sphinx`, you can build the documentation by running the following command in the `/docs` folder:
+Don't commit the built output. Only changes under `docs/source/` are reviewed.
+
+## Adding a new file to the docs
+
+Pages live in `docs/source/<lang>/` as Markdown (`.md`) files. The sidebar navigation lives in [_toctree.yml](https://github.com/huggingface/transformers/blob/main/docs/source/en/_toctree.yml), and a new page only shows up in the sidebar after you add it there.
+
+1. Create the Markdown file under `docs/source/en/` (or the appropriate language directory). Match the file naming and license header of an existing page. Copying a similar page is the fastest way to start.
+2. Add an entry to `docs/source/en/_toctree.yml` that points to the filename without the `.md` extension.
+
+Each entry has two fields:
+
+- `local`: the file path relative to `docs/source/<lang>/`, without the extension.
+- `title`: the human-readable label that appears in the sidebar.
+
+For a page nested inside a subsection, add it to the inner `sections` list:
+
+```yaml
+- isExpanded: false
+  sections:
+  - local: contributing
+    title: Contribute to Transformers
+  - local: my_new_contributor_guide
+    title: My new contributor guide
+  title: Contribute
+```
+
+## doc-builder syntax
+
+doc-builder accepts standard Markdown plus a few extensions you'll see across our docs. For the full set of supported syntax (inference snippets, file-include blocks, redirects, multilingual builds, etc.), see the [doc-builder README](https://github.com/huggingface/doc-builder#writing-documentation-for-hugging-face-libraries).
+
+### Tips and warnings
+
+Use GitHub-style blockquote callouts for notes, tips, and warnings:
+
+```md
+> [!TIP]
+> Use `device_map="auto"` to let Transformers place model shards across available devices.
+
+> [!WARNING]
+> `from_pretrained` downloads the full checkpoint on first use. Set `cache_dir` to control where it lands.
+```
+
+Older pages may use the legacy `<Tip>` component. Prefer blockquotes for new content.
+
+### Internal links to classes and functions
+
+Wrap a class, function, or method name in square brackets and backticks to link to its doc page. doc-builder resolves the link automatically:
+
+```md
+Use [`AutoModel`] to load a model from a checkpoint, then call [`~PreTrainedModel.from_pretrained`].
+```
+
+A few variations:
+
+- Prefix the name with `~` to render only the last component (`from_pretrained`) instead of the full path (`PreTrainedModel.from_pretrained`).
+- For objects nested in a submodule, include the path inside the backticks, like `utils.ModelOutput`.
+- The same syntax links to objects in other Hugging Face libraries, e.g. `accelerate.Accelerator`.
+
+### Tabbed options
+
+To show alternative snippets (CLI vs. Python, different backends, etc.) as tabs, use `<hfoptions>`:
+
+````md
+<hfoptions id="install">
+<hfoption id="pip">
 
 ```bash
-make html
+pip install transformers
 ```
 
-A folder called ``_build/html`` should have been created. You can now open the file ``_build/html/index.html`` in your
-browser.
-
----
-**NOTE**
-
-If you are adding/removing elements from the toc-tree or from any structural item, it is recommended to clean the build
-directory before rebuilding. Run the following command to clean and build:
+</hfoption>
+<hfoption id="uv">
 
 ```bash
-make clean && make html
+uv pip install transformers
 ```
 
----
+</hfoption>
+</hfoptions>
 
-It should build the static app that will be available under `/docs/_build/html`
+````
 
-## Adding a new element to the tree (toc-tree)
+### Auto-generated API reference
 
-Accepted files are reStructuredText (.rst) and Markdown (.md). Create a file with its extension and put it
-in the source directory. You can then link it to the toc-tree by putting the filename without the extension.
+> [!IMPORTANT]
+> Always leave a blank line after `[[autodoc]]` so the CI checks pass.
 
-## Preview the documentation in a pull request
+Use `[[autodoc]]` to render the docstring of a class or function. The marker pulls the description, arguments, and (for classes) every public method:
 
-Once you have made your pull request, you can check what the documentation will look like after it's merged by
-following these steps:
+```md
+## AutoModel
 
-- Look at the checks at the bottom of the conversation page of your PR (you may need to click on "show all checks" to
-  expand them).
-- Click on "details" next to the `ci/circleci: build_doc` check.
-- In the new window, click on the "Artifacts" tab.
-- Locate the file "docs/_build/html/index.html" (or any specific page you want to check) and click on it to get a
-  preview.
-
-## Writing Documentation - Specification
-
-The `huggingface/transformers` documentation follows the
-[Google documentation](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) style. It is
-mostly written in ReStructuredText
-([Sphinx simple documentation](https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html),
-[Sourceforge complete documentation](https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html)).
-
-
-### Adding a new tutorial
-
-Adding a new tutorial or section is done in two steps:
-
-- Add a new file under `./source`. This file can either be ReStructuredText (.rst) or Markdown (.md).
-- Link that file in `./source/index.rst` on the correct toc-tree.
-
-Make sure to put your new file under the proper section. It's unlikely to go in the first section (*Get Started*), so
-depending on the intended targets (beginners, more advanced users or researchers) it should go in section two, three or
-four.
-
-### Adding a new model
-
-When adding a new model:
-
-- Create a file `xxx.rst` under `./source/model_doc` (don't hesitate to copy an existing file as template).
-- Link that file in `./source/index.rst` on the `model_doc` toc-tree.
-- Write a short overview of the model:
-    - Overview with paper & authors
-    - Paper abstract
-    - Tips and tricks and how to use it best
-- Add the classes that should be linked in the model. This generally includes the configuration, the tokenizer, and
-  every model of that class (the base model, alongside models with additional heads), both in PyTorch and TensorFlow.
-  The order is generally:
-    - Configuration,
-    - Tokenizer
-    - PyTorch base model
-    - PyTorch head models
-    - TensorFlow base model
-    - TensorFlow head models
-
-These classes should be added using the RST syntax. Usually as follows:
-```
-XXXConfig
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.XXXConfig
-    :members:
+[[autodoc]] AutoModel
 ```
 
-This will include every public method of the configuration that is documented. If for some reason you wish for a method
-not to be displayed in the documentation, you can do so by specifying which methods should be in the docs:
+To restrict the output to specific methods, list them as a bulleted sub-list:
 
-```
-XXXTokenizer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: transformers.XXXTokenizer
-    :members: build_inputs_with_special_tokens, get_special_tokens_mask,
-        create_token_type_ids_from_sequences, save_vocabulary
-
+```md
+[[autodoc]] BertTokenizer
+    - build_inputs_with_special_tokens
+    - get_special_tokens_mask
 ```
 
-### Writing source documentation
+To pull in a method that isn't documented by default (for example, `__call__`), start the list with `all` and then add the extras:
 
-Values that should be put in `code` should either be surrounded by double backticks: \`\`like so\`\` or be written as
-an object using the :obj: syntax: :obj:\`like so\`. Note that argument names and objects like True, None or any strings
-should usually be put in `code`.
-
-When mentionning a class, it is recommended to use the :class: syntax as the mentioned class will be automatically
-linked by Sphinx: :class:\`~transformers.XXXClass\`
-
-When mentioning a function, it is recommended to use the :func: syntax as the mentioned function will be automatically
-linked by Sphinx: :func:\`~transformers.function\`.
-
-When mentioning a method, it is recommended to use the :meth: syntax as the mentioned method will be automatically
-linked by Sphinx: :meth:\`~transformers.XXXClass.method\`.
-
-Links should be done as so (note the double underscore at the end): \`text for the link <./local-link-or-global-link#loc>\`__
-
-#### Defining arguments in a method
-
-Arguments should be defined with the `Args:` prefix, followed by a line return and an indentation.
-The argument should be followed by its type, with its shape if it is a tensor, and a line return.
-Another indentation is necessary before writing the description of the argument.
-
-Here's an example showcasing everything so far:
-
-```
-    Args:
-        input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary.
-
-            Indices can be obtained using :class:`~transformers.AlbertTokenizer`.
-            See :meth:`~transformers.PreTrainedTokenizer.encode` and
-            :meth:`~transformers.PreTrainedTokenizer.__call__` for details.
-
-            `What are input IDs? <../glossary.html#input-ids>`__
+```md
+[[autodoc]] BertTokenizer
+    - all
+    - __call__
 ```
 
-For optional arguments or arguments with defaults we follow the following syntax: imagine we have a function with the
-following signature:
+### Testable code blocks
 
+Tag Python fences with `runnable` (optionally followed by `:<label>`) to mark them as testable examples. doc-builder strips the annotation from the rendered output:
+
+````md
+```py runnable:quickstart
+from transformers import pipeline
+
+pipe = pipeline("sentiment-analysis")
+print(pipe("I love this!"))
 ```
-def my_function(x: str = None, a: float = 1):
-```
+````
 
-then its documentation should look like this:
+## Writing docstrings
 
-```
-    Args:
-        x (:obj:`str`, `optional`):
-            This argument controls ...
-        a (:obj:`float`, `optional`, defaults to 1):
-            This argument is used to ...
-```
+Most docstrings are automatically generated in the library source code, especially `modeling_*.py`, `configuration_*.py`, processing, and tokenizer files. For model classes and forward methods, use the [@auto_docstring](./source/en/auto_docstring.md) decorator when it applies. It keeps shared arguments and returns consistent docstrings without repeating full `Args:` blocks in every model file.
 
-Note that we always omit the "defaults to :obj:\`None\`" when None is the default for any argument. Also note that even
-if the first line describing your argument type and its default gets long, you can't break it on several lines. You can
-however write as many lines as you want in the indented description (see the example above with `input_ids`).
+Use hand-written docstrings, following the [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html), for objects that are not covered by `@auto_docstring`, or when a method needs model-specific behavior documented.
 
-#### Writing a multi-line code block
+### Styling
 
-Multi-line code blocks can be useful for displaying examples. They are done like so:
+Run `make style` to format docstrings and code examples with [Ruff](https://docs.astral.sh/ruff/).
 
-```
-Example::
+The script can fail on syntax errors. Commit before running `make style` so you can revert if something goes wrong.
 
-    # first line of code
-    # second line
-    # etc
-```
+## Adding an image
 
-The `Example` string at the beginning can be replaced by anything as long as there are two semicolons following it.
-
-We follow the [doctest](https://docs.python.org/3/library/doctest.html) syntax for the examples to automatically test
-the results stay consistent with the library.
-
-#### Writing a return block
-
-Arguments should be defined with the `Args:` prefix, followed by a line return and an indentation.
-The first line should be the type of the return, followed by a line return. No need to indent further for the elements
-building the return.
-
-Here's an example for tuple return, comprising several objects:
-
-```
-    Returns:
-        :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration (:class:`~transformers.BertConfig`) and inputs:
-        loss (`optional`, returned when ``masked_lm_labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
-            Total loss as the sum of the masked language modeling loss and the next sequence prediction (classification) loss.
-        prediction_scores (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length, config.vocab_size)`)
-            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
-```
-
-Here's an example for a single value return:
-
-```
-    Returns:
-        :obj:`List[int]`: A list of integers in the range [0, 1] --- 1 for a special token, 0 for a sequence token.
-```
-
-#### Adding a new section
-
-In ReST section headers are designated as such with the help of a line of underlying characters, e.g.,:
-
-```
-Section 1
-^^^^^^^^^^^^^^^^^^
-
-Sub-section 1
-~~~~~~~~~~~~~~~~~~
-```
-
-ReST allows the use of any characters to designate different section levels, as long as they are used consistently within the same document. For details see [sections doc](https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections). Because there is no standard different documents often end up using different characters for the same levels which makes it very difficult to know which character to use when creating a new section.
-
-Specifically, if when running `make docs` you get an error like:
-```
-docs/source/main_classes/trainer.rst:127:Title level inconsistent:
-```
-you picked an inconsistent character for some of the levels.
-
-But how do you know which characters you must use for an already existing level or when adding a new level?
-
-You can use this helper script:
-```
-perl -ne '/^(.)\1{100,}/ && do { $h{$1}=++$c if !$h{$1} }; END { %h = reverse %h ; print "$_ $h{$_}\n" for sort keys %h}' docs/source/main_classes/trainer.rst
-1 -
-2 ~
-3 ^
-4 =
-5 "
-```
-
-This tells you which characters have already been assigned for each level.
-
-So using this particular example's output -- if your current section's header uses `=` as its underline character, you now know you're at level 4, and if you want to add a sub-section header you know you want `"` as it'd level 5.
-
-If you needed to add yet another sub-level, then pick a character that is not used already. That is you must pick a character that is not in the output of that script.
-
-Here is the full list of characters that can be used in this context: `= - ` : ' " ~ ^ _ * + # < >`
+Don't commit images, videos, or other binary assets to the repository because they bloat the repository. Host them on the Hub instead and reference them by URL. The standard home for documentation media is the [huggingface/documentation-images](https://huggingface.co/datasets/huggingface/documentation-images) dataset. For external PRs, attach the images to the PR and ask a Hugging Face maintainer to migrate them to the dataset.

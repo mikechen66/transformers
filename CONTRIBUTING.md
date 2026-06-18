@@ -14,342 +14,219 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# How to contribute to transformers?
+# Contribute to 🤗 Transformers
 
-Everyone is welcome to contribute, and we value everybody's contribution. Code
-is thus not the only way to help the community. Answering questions, helping
-others, reaching out and improving the documentations are immensely valuable to
-the community.
+> [!WARNING]
+> The Transformers repo is currently being overwhelmed by a large number of PRs and issue comments written by
+> code agents. We are currently bottlenecked by our ability to review and respond to them. As a result,
+> **we ask that new users do not submit pure code agent PRs** at this time.
+> You may use code agents in drafting or to help you diagnose issues. We'd also ask autonomous agents
+> not to open any PRs or issues for the moment.
+>
+> PRs that appear to be fully agent-written will probably be closed without review, and we may block users who do this
+> repeatedly or maliciously.
 
-It also helps us if you spread the word: reference the library from blog posts
-on the awesome projects it made possible, shout out on Twitter every time it has
-helped you, or simply star the repo to say "thank you".
+<details>
 
-Whichever way you choose to contribute, please be mindful to respect our
-[code of conduct](https://github.com/huggingface/transformers/blob/master/CODE_OF_CONDUCT.md).
+<summary> Our code agent philosophy in detail </summary>
 
-## You can contribute in so many ways!
+We understand that code agents are extremely powerful tools, and many people at Hugging Face use them in their work.
+However, it's important to realize that **if you simply run a code agent
+and generate a PR to an open-source project, you are merely a middleman between the reviewers and the agent**. 
+Although doing this creates something that looks very much like a useful contribution, in reality there was no reason 
+for you to be involved; the reviewers could have simply run the code agent themselves.
 
-There are 4 ways you can contribute to transformers:
-* Fixing outstanding issues with the existing code;
-* Implementing new models;
-* Contributing to the examples or to the documentation;
-* Submitting issues related to bugs or desired new features.
+If you want to contribute usefully to open-source in the agent era, **you need to do things that agents can't do on
+their own**. In particular, we've found the following to be very helpful:
+- Clear diagnosis of bugs. Code agents like to quickly fix problems with a workaround that often causes code bloat
+or incompatibilities with other models. Spending time to track down the exact cause of a problem, and in particular
+locating the first commit where it appeared (for example with [git bisect](https://git-scm.com/docs/git-bisect)) is valuable.
+- Minimize the diff. Check your PR to eliminate any unnecessary changes. Ensure that you did not commit any testing scripts
+or unrelated files. Add comments only if they're really necessary; code agents love adding three new functions and
+multi-line comments to draw attention to all the hard work they did. If your PR can be a 1-line fix,
+make it a 1-line fix. This makes the PR much easier to review and improves the chances that it will be accepted.
+- Take the time to reproduce the problem. Very often when a user reports an issue, the issue is actually caused by
+environment issues on their machine, or they misdiagnose the problem and suggest an invalid solution. Many code agents
+trust the user comments too much, which results in bad solutions, sometimes for problems that 
+do not exist! Writing a simple reproducer script and running it to make sure you see the problem is valuable.
+- Compare against other models. The Transformers repo is very large, and many models are doing similar things. When
+fixing a bug, it's valuable to see if the bug exists in other models. If your PR says
+"fixed by using the same approach as (other model)", with a link to the relevant code, that is very helpful for maintainers,
+because it tells us that the fix is likely to be correct and compatible with the rest of the codebase. Code agents often
+look at the code "narrowly", and make a fix that causes models to diverge from the rest of the codebase.
+- Avoid small or "busywork" PRs. In the past, we used to accept these, but given the current flood, we simply don't
+have time for small style changes or typo fixes in comments. You can provide value beyond a code
+agent simply by having good taste about what's really important.
+- Verify tests locally and in the CI. Before opening a PR, run `make fix-repo` and use `utils/tests_fetcher.py` to 
+see a list of tests that cover the files you have changed in your PR branch. Run those tests locally, and make sure 
+they pass before you open a PR. After you open your PR, please verify that the CI is green and fix any issues before 
+pinging anyone for review! This reduces notification spam a lot, which keeps maintainers sane.
 
-*All are equally valuable to the community.*
+Please bear in mind that this is an exciting, rapidly-changing but challenging era for open-source development, and indeed
+for the software industry as a whole. We will likely be rapidly updating these guidelines as we learn more about
+dealing effectively with code agents. Have patience with us if reviews are slower than normal, or if some
+PRs are closed without review!
 
-## Submitting a new issue or feature request
+</details>
 
-Do your best to follow these guidelines when submitting an issue or a feature
-request. It will make it easier for us to come back to you quickly and with good
-feedback.
+Transformers welcomes all contributions whether it is fixing bugs, submitting feature requests, implementing new models, or improving docs.
 
-### Did you find a bug?
+If you aren't sure where to start, take a look at the [Good First Issues](https://github.com/huggingface/transformers/labels/Good%20First%20Issue) for more beginner-friendly issues. For a more challenging issue, check out the [Good Second Issues](https://github.com/huggingface/transformers/labels/Good%20Second%20Issue). However you choose to contribute, please be mindful and respect our [code of conduct](https://github.com/huggingface/transformers/blob/main/CODE_OF_CONDUCT.md).
 
-The transformers are robust and reliable thanks to the users who notify us of
-the problems they encounter. So thank you for reporting an issue.
+If you enjoyed using Transformers, feel free to reference it and let us know how you're using it, shout us out on Twitter, or give the repository a star!
 
-First, we would really appreciate it if you could **make sure the bug was not
-already reported** (use the search bar on Github under Issues).
+This guide was heavily inspired by the [scikit-learn guide to contributing](https://github.com/scikit-learn/scikit-learn/blob/main/CONTRIBUTING.md).
 
-Did not find it? :( So we can act quickly on it, please follow these steps:
+## Contents
 
-* Include your **OS type and version**, the versions of **Python**, **PyTorch** and
-  **Tensorflow** when applicable;
-* A short, self-contained, code snippet that allows us to reproduce the bug in
-  less than 30s;
-* Provide the *full* traceback if an exception is raised.
+1. [Set up](#set-up)
+   - [Windows](#windows)
+2. [Opening issues](#opening-issues)
+   - [Bug-related issue](#bug-related-issue)
+   - [Feature request](#feature-request)
+3. [Adding a new model](#adding-a-new-model)
+   - [Model addition timeline](#model-addition-timeline)
+4. [Docs](#docs)
+5. [Agentic contributions](#agentic-contributions)
 
-To get the OS and software versions automatically, you can run the following command:
+## Set up
+
+1. Fork [Transformers](https://github.com/huggingface/transformers) with the **Fork** button on GitHub to get a copy under your account, then clone it locally.
+
+  ```bash
+  git clone git@github.com:<your Github handle>/transformers.git
+  cd transformers
+  ```
+
+2. Add the Transformers repository as a remote named `upstream`. `origin` points at your fork and `upstream` points at the source of truth. That lets you sync your local `main` before pushing to `origin` and opening a PR.
+
+  ```bash
+  git remote add upstream https://github.com/huggingface/transformers.git
+  git remote -v
+  # origin    git@github.com:<your Github handle>/transformers.git (fetch)
+  # origin    git@github.com:<your Github handle>/transformers.git (push)
+  # upstream  https://github.com/huggingface/transformers.git (fetch)
+  # upstream  https://github.com/huggingface/transformers.git (push)
+  ```
+
+3. Keep your fork up to date and start a branch to work on. You can also sync your fork from the GitHub UI with the **Sync fork** button.
+
+  ```bash
+  git checkout main && git pull upstream main && git push origin main
+  git switch -c a-descriptive-name-for-my-branch
+  ```
+
+4. Install the library in editable mode. Use `[dev]` for most contributions because it includes the development tools needed for style and quality checks. Use `[torch,testing]` for model contributions, or `[quality]` for docs-only changes and small fixes when the full development dependency set is not needed.
+
+  ```bash
+  pip install -e ".[dev]"
+
+  # for model contributions
+  pip install -e ".[torch,testing]"
+
+  # for docs-only changes and small fixes
+  pip install -e ".[quality]"
+  ```
+
+### Windows
+
+On Windows, unless you're using [WSL](https://learn.microsoft.com/en-us/windows/wsl/), configure git to convert `CRLF` line endings to `LF`.
 
 ```bash
-transformers-cli env
+git config core.autocrlf input
 ```
 
-or from the root of the repository the following command:
-
-```bash
-python src/transformers/commands/transformers_cli.py env
-```
-
-
-### Do you want to implement a new model?
-
-Awesome! Please provide the following information:
-
-* Short description of the model and link to the paper;
-* Link to the implementation if it is open-source;
-* Link to the model weights if they are available.
-
-If you are willing to contribute the model yourself, let us know so we can best
-guide you.
-
-We have added a **detailed guide and templates** to guide you in the process of adding a new model. You can find them
-in the [`templates`](https://github.com/huggingface/transformers/tree/master/templates) folder.
-
-### Do you want a new feature (that is not a model)?
-
-A world-class feature request addresses the following points:
-
-1. Motivation first:
-  * Is it related to a problem/frustration with the library? If so, please explain
-    why. Providing a code snippet that demonstrates the problem is best.
-  * Is it related to something you would need for a project? We'd love to hear
-    about it!
-  * Is it something you worked on and think could benefit the community?
-    Awesome! Tell us what problem it solved for you.
-2. Write a *full paragraph* describing the feature;
-3. Provide a **code snippet** that demonstrates its future use;
-4. In case this is related to a paper, please attach a link;
-5. Attach any additional information (drawings, screenshots, etc.) you think may help.
-
-If your issue is well written we're already 80% of the way there by the time you
-post it.
-
-We have added **templates** to guide you in the process of adding a new example script for training or testing the
-models in the library. You can find them in the [`templates`](https://github.com/huggingface/transformers/tree/master/templates)
-folder.
-
-## Start contributing! (Pull Requests)
-
-Before writing code, we strongly advise you to search through the existing PRs or
-issues to make sure that nobody is already working on the same thing. If you are
-unsure, it is always a good idea to open an issue to get some feedback.
-
-You will need basic `git` proficiency to be able to contribute to
-`transformers`. `git` is not the easiest tool to use but it has the greatest
-manual. Type `git --help` in a shell and enjoy. If you prefer books, [Pro
-Git](https://git-scm.com/book/en/v2) is a very good reference.
-
-Follow these steps to start contributing:
-
-1. Fork the [repository](https://github.com/huggingface/transformers) by
-   clicking on the 'Fork' button on the repository's page. This creates a copy of the code
-   under your GitHub user account.
-
-2. Clone your fork to your local disk, and add the base repository as a remote:
-
-   ```bash
-   $ git clone git@github.com:<your Github handle>/transformers.git
-   $ cd transformers
-   $ git remote add upstream https://github.com/huggingface/transformers.git
-   ```
-
-3. Create a new branch to hold your development changes:
-
-   ```bash
-   $ git checkout -b a-descriptive-name-for-my-changes
-   ```
-
-   **Do not** work on the `master` branch.
-
-4. Set up a development environment by running the following command in a virtual environment:
-
-   ```bash
-   $ pip install -e ".[dev]"
-   ```
-
-   (If transformers was already installed in the virtual environment, remove
-   it with `pip uninstall transformers` before reinstalling it in editable
-   mode with the `-e` flag.)
-
-   To run the full test suite, you might need the additional dependency on `datasets` which requires a separate source
-   install:
-
-   ```bash
-   $ git clone https://github.com/huggingface/datasets
-   $ cd datasets
-   $ pip install -e .
-   ```
-
-   If you have already cloned that repo, you might need to `git pull` to get the most recent changes in the `datasets`
-   library.
-
-5. Develop the features on your branch.
-
-   As you work on the features, you should make sure that the test suite
-   passes:
-
-   ```bash
-   $ make test
-   ```
-
-   Note, that this command uses `-n auto` pytest flag, therefore, it will start as many parallel `pytest` processes as the number of your computer's CPU-cores, and if you have lots of those and a few GPUs and not a great amount of RAM, it's likely to overload your computer. Therefore, to run the test suite, you may want to consider using this command instead:
-
-   ```bash
-   $ python -m pytest -n 3 --dist=loadfile -s -v ./tests/
-   ```
-
-   Adjust the value of `-n` to fit the load your hardware can support.
-
-   `transformers` relies on `black` and `isort` to format its source code
-   consistently. After you make changes, format them with:
-
-   ```bash
-   $ make style
-   ```
-
-   `transformers` also uses `flake8` and a few custom scripts to check for coding mistakes. Quality
-   control runs in CI, however you can also run the same checks with:
-
-   ```bash
-   $ make quality
-   ```
-   You can do the automatic style corrections and code verifications that can't be automated in one go:
-
-   ```bash
-   $ make fixup
-   ```
-
-   This target is also optimized to only work with files modified by the PR you're working on.
-
-   If you're modifying documents under `docs/source`, make sure to validate that
-   they can still be built. This check also runs in CI. To run a local check
-   make sure you have installed the documentation builder requirements, by
-   running `pip install .[tf,torch,docs]` once from the root of this repository
-   and then run:
-
-   ```bash
-   $ make docs
-   ```
-
-   Once you're happy with your changes, add changed files using `git add` and
-   make a commit with `git commit` to record your changes locally:
-
-   ```bash
-   $ git add modified_file.py
-   $ git commit
-   ```
-
-   Please write [good commit
-   messages](https://chris.beams.io/posts/git-commit/).
-
-   It is a good idea to sync your copy of the code with the original
-   repository regularly. This way you can quickly account for changes:
-
-   ```bash
-   $ git fetch upstream
-   $ git rebase upstream/master
-   ```
-
-   Push the changes to your account using:
-
-   ```bash
-   $ git push -u origin a-descriptive-name-for-my-changes
-   ```
-
-6. Once you are satisfied (**and the checklist below is happy too**), go to the
-   webpage of your fork on GitHub. Click on 'Pull request' to send your changes
-   to the project maintainers for review.
-
-7. It's ok if maintainers ask you for changes. It happens to core contributors
-   too! So everyone can see the changes in the Pull request, work in your local
-   branch and push the changes to your fork. They will automatically appear in
-   the pull request.
-
-
-### Checklist
-
-1. The title of your pull request should be a summary of its contribution;
-2. If your pull request addresses an issue, please mention the issue number in
-   the pull request description to make sure they are linked (and people
-   consulting the issue know you are working on it);
-3. To indicate a work in progress please prefix the title with `[WIP]`. These
-   are useful to avoid duplicated work, and to differentiate it from PRs ready
-   to be merged;
-4. Make sure existing tests pass;
-5. Add high-coverage tests. No quality testing = no merge.
-   - If you are adding a new model, make sure that you use
-     `ModelTester.all_model_classes = (MyModel, MyModelWithLMHead,...)`, which triggers the common tests.
-   - If you are adding new `@slow` tests, make sure they pass using
-     `RUN_SLOW=1 python -m pytest tests/test_my_new_model.py`.
-   - If you are adding a new tokenizer, write tests, and make sure
-     `RUN_SLOW=1 python -m pytest tests/test_tokenization_{your_model_name}.py` passes.
-   CircleCI does not run the slow tests, but github actions does every night!
-6. All public methods must have informative docstrings that work nicely with sphinx. See `modeling_ctrl.py` for an
-   example.
-
-### Tests
-
-An extensive test suite is included to test the library behavior and several examples. Library tests can be found in
-the [tests folder](https://github.com/huggingface/transformers/tree/master/tests) and examples tests in the
-[examples folder](https://github.com/huggingface/transformers/tree/master/examples).
-
-We like `pytest` and `pytest-xdist` because it's faster. From the root of the
-repository, here's how to run tests with `pytest` for the library:
-
-```bash
-$ python -m pytest -n auto --dist=loadfile -s -v ./tests/
-```
-
-and for the examples:
-
-```bash
-$ pip install -r examples/requirements.txt  # only needed the first time
-$ python -m pytest -n auto --dist=loadfile -s -v ./examples/
-```
-In fact, that's how `make test` and `make test-examples` are implemented (sans the `pip install` line)!
-
-You can specify a smaller set of tests in order to test only the feature
-you're working on.
-
-By default, slow tests are skipped. Set the `RUN_SLOW` environment variable to
-`yes` to run them. This will download many gigabytes of models — make sure you
-have enough disk space and a good Internet connection, or a lot of patience!
-
-```bash
-$ RUN_SLOW=yes python -m pytest -n auto --dist=loadfile -s -v ./tests/
-$ RUN_SLOW=yes python -m pytest -n auto --dist=loadfile -s -v ./examples/
-```
-
-Likewise, set the `RUN_CUSTOM_TOKENIZERS` environment variable to `yes` to run
-tests for custom tokenizers, which don't run by default either.
-
-🤗 Transformers uses `pytest` as a test runner only. It doesn't use any
-`pytest`-specific features in the test suite itself.
-
-This means `unittest` is fully supported. Here's how to run tests with
-`unittest`:
-
-```bash
-$ python -m unittest discover -s tests -t . -v
-$ python -m unittest discover -s examples -t examples -v
-```
-
-
-### Style guide
-
-For documentation strings, `transformers` follows the [google style](https://google.github.io/styleguide/pyguide.html).
-Check our [documentation writing guide](https://github.com/huggingface/transformers/tree/master/docs#writing-documentation---specification)
-for more information.
-
-#### This guide was heavily inspired by the awesome [scikit-learn guide to contributing](https://github.com/scikit-learn/scikit-learn/blob/master/CONTRIBUTING.md)
-
-
-### Develop on Windows
-
-On windows, you need to configure git to transform Windows `CRLF` line endings to Linux `LF` line endings:
-
-`git config core.autocrlf input`
-
-One way one can run the make command on Window is to pass by MSYS2:
-
-1. [Download MSYS2](https://www.msys2.org/), we assume to have it installed in C:\msys64
-2. Open the command line C:\msys64\msys2.exe (it should be available from the start menu)
-3. Run in the shell: `pacman -Syu` and install make with `pacman -S make`
+One way to run the `make` command on Windows is with MSYS2.
+
+1. [Download MSYS2](https://www.msys2.org/) (we assume it's installed in `C:\msys64`).
+2. Open the command line `C:\msys64\msys2.exe` (it should be available from the **Start** menu).
+3. Run in the shell: `pacman -Syu` and install `make` with `pacman -S make`.
 4. Add `C:\msys64\usr\bin` to your PATH environment variable.
 
-You can now use `make` from any terminal (Powershell, cmd.exe, etc) 🎉
+You can now use `make` from any terminal (PowerShell, cmd.exe, etc.).
 
-### Syncing forked master with upstream (HuggingFace) master
+## Opening issues
 
-To avoid pinging the upstream repository which adds reference notes to each upstream PR and sends unnessary notifications to the developers involved in these PRs, 
-when syncing the master branch of a forked repository, please, follow these steps:
-1. When possible, avoid syncing with the upstream using a branch and PR on the forked repository. Instead merge directly into the forked master.
-2. If a PR is absolutely necessary, use the following steps after checking out your branch:
+Use the issue [templates](https://github.com/huggingface/transformers/tree/main/.github/ISSUE_TEMPLATE) to help you get started.
+
+### Bug-related issue
+
+Make sure the bug wasn't already reported before opening an issue (use the search bar on GitHub under Issues). The issue should be a bug in Transformers, not in your own code.
+
+If you're unsure whether the bug is in your code or the library, ask in the [forum](https://discuss.huggingface.co/) or on [Discord](https://discord.com/invite/hugging-face-879548962464493619) first. That helps keep GitHub focused on actionable library issues.
+
+Include the following so we can resolve it quickly.
+
+* Your *OS type and version* and *Python*, and *PyTorch* versions when applicable.
+* A short, self-contained, code snippet that allows us to reproduce the bug.
+* The *full* traceback if an exception is raised.
+* Any other information, like screenshots, that may help.
+
+To get the OS and software versions automatically, run the following command.
+
+```bash
+transformers env
 ```
-$ git checkout -b your-branch-for-syncing
-$ git pull --squash --no-commit upstream master
-$ git commit -m '<your message without GitHub references>'
-$ git push --set-upstream origin your-branch-for-syncing
-```
+
+### Feature request
+
+Open an issue and describe:
+
+* The *motivation* such as a frustration with the library, a project need, or work you've done that could benefit the community.
+* The feature in as much detail as possible.
+* A *code snippet* demonstrating the feature's usage.
+* A link to the relevant paper, if applicable.
+
+## Adding a new model
+
+Adding a model to Transformers makes it available for anyone to load and fine-tune it or run inference. Before you start the implementation, isolate the differences between your architecture and recent state-of-the-art models that are already in Transformers. Explain those differences in the issue or PR so reviewers can quickly understand what challenges the model brings, what parts can reuse existing patterns, and what should be standardized across models.
+
+Follow the guides below.
+
+1. [Add a model with modular Transformers](docs/source/en/modular_transformers.md) — implement the model using the modular file and generate standalone modeling files.
+2. [Auto-generate docstrings](docs/source/en/auto_docstring.md) — use the `@auto_docstring` decorator to generate consistent docstrings without boilerplate.
+3. [Testing](docs/source/en/testing.md) — write and run model tests to verify correctness and keep the contribution maintainable. For causal language models, inherit from the causal LM tester where possible. Prioritize integration tests because they verify the full processor, tokenizer, and model path against real checkpoints.
+4. [Model structure rules](docs/source/en/modeling_rules.md) — check your files pass the static model structure rules enforced by `make typing`.
+
+Some model additions need extra integration work.
+
+- [Add vision processing components](docs/source/en/add_vision_processing_components.md) if your model requires image or video inputs.
+- [Dynamic weight loading](docs/source/en/weightconverter.md) if published checkpoint parameter names do not match the Transformers implementation.
+
+### Model addition timeline
+
+There are four timelines for model additions depending on the model contributor and community demand for an architecture.
+
+- Day-0 integration: make the model available in Transformers on release day with a new version release. We provide help to support the most important core features (quantization, FlashAttention, KV-cache, etc.), review early drafts, and can also take care of the model implementation depending on timelines.
+
+  Email transformers@huggingface.co a few weeks ahead, especially for novel architectures. We'll iterate with you on a private fork until your checkpoint and release are ready.
+
+- Same-week integration: high-demand models usually land within a week, even when the author doesn't reach out.
+
+  Open an issue with the [new model template](https://github.com/huggingface/transformers/issues/new?assignees=&labels=New+model&projects=&template=new-model-addition.yml) to request one. Issues with more activity move up the queue faster.
+
+- Post-release integration: models without strong demand, or that we don't have bandwidth to take on, land after the upstream release.
+
+  Open issues tagged ["New model"](https://github.com/huggingface/transformers/issues?q=is%3Aopen+is%3Aissue+label%3A%22New+model%22) are the entry point for outside contributors. Start with the most-requested architectures to maximize impact. We'll review and guide you through it.
+
+- Hub-first release: ship your model directly on the Hub via Transformers' [remote-code](./docs/source/en/models#custom-models.md) support, with no upstream PR required.
+
+  Popular Hub-first models often get integrated into Transformers later, which unlocks first-class docs, maintenance, and optimization. Hub-first is the lowest-friction way to add a model. However, it can be more fragile if a model requires weight conversion or other backward compatibility issues.
+
+## Docs
+
+Improvements to the docs, like typos, missing content or unclear explanations, are always welcome. For API reference generated from source files, use the [`@auto_docstring`](./docs/source/en/auto_docstring.md) decorator when it applies. Open a pull request directly for meaningful documentation fixes.
+
+Refer to the docs [README](./docs/README.md) for more details about how to edit the docs and the syntax we use.
+
+## Agentic contributions
+
+AI-assisted contributions are welcome. They must be coordinated, scoped, and verified to keep review load manageable.
+
+- Do not submit "pure agent" PRs. The human submitter is responsible for reviewing all changed lines, validating behavior end-to-end, and running relevant tests.
+- If AI tools were used, disclose this in the PR description and include: coordination link, differentiation from existing PRs (if applicable), and test commands/results.
+- Avoid one-off "busywork" PRs (single typo, isolated style cleanup, one mutable default fix, etc.). Bundle mechanical cleanups into a clear, systematic scope.
+- Coordinate on issues before opening a PR, review similar PRs, and wait for approval.
+
+> [!NOTE]
+> These topics are outlined for agents in `AGENTS.md` with instruction for how to autonomously implement them.

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2018 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Convert slow tokenizers checkpoints in fast (serialization format of the `tokenizers` library) """
+"""Convert slow tokenizers checkpoints in fast (serialization format of the `tokenizers` library)"""
 
 import argparse
 import os
+from pathlib import Path
 
 import transformers
 
@@ -28,12 +28,26 @@ logging.set_verbosity_info()
 logger = logging.get_logger(__name__)
 
 
-TOKENIZER_CLASSES = {name: getattr(transformers, name + "Fast") for name in SLOW_TO_FAST_CONVERTERS}
+TOKENIZER_CLASSES = {}
+for name in SLOW_TO_FAST_CONVERTERS:
+    # Special cases for tokenizers that don't have their own Fast tokenizer
+    if name == "Phi3Tokenizer":
+        tokenizer_class_name = "LlamaTokenizerFast"
+    elif name == "ElectraTokenizer":
+        tokenizer_class_name = "BertTokenizerFast"
+    else:
+        tokenizer_class_name = name + "Fast"
+
+    try:
+        TOKENIZER_CLASSES[name] = getattr(transformers, tokenizer_class_name)
+    except AttributeError:
+        # Skip tokenizers that don't have a Fast version
+        pass
 
 
 def convert_slow_checkpoint_to_fast(tokenizer_name, checkpoint_name, dump_path, force_download):
     if tokenizer_name is not None and tokenizer_name not in TOKENIZER_CLASSES:
-        raise ValueError("Unrecognized tokenizer name, should be one of {}.".format(list(TOKENIZER_CLASSES.keys())))
+        raise ValueError(f"Unrecognized tokenizer name, should be one of {list(TOKENIZER_CLASSES.keys())}.")
 
     if tokenizer_name is None:
         tokenizer_names = TOKENIZER_CLASSES
@@ -60,14 +74,21 @@ def convert_slow_checkpoint_to_fast(tokenizer_name, checkpoint_name, dump_path, 
             tokenizer = tokenizer_class.from_pretrained(checkpoint, force_download=force_download)
 
             # Save fast tokenizer
-            logger.info(
-                "Save fast tokenizer to {} with prefix {} add_prefix {}".format(dump_path, checkpoint, add_prefix)
-            )
+            logger.info(f"Save fast tokenizer to {dump_path} with prefix {checkpoint} add_prefix {add_prefix}")
 
             # For organization names we create sub-directories
             if "/" in checkpoint:
                 checkpoint_directory, checkpoint_prefix_name = checkpoint.split("/")
                 dump_path_full = os.path.join(dump_path, checkpoint_directory)
+
+                # Security check
+                try:
+                    Path(dump_path_full).resolve().relative_to(Path(dump_path).resolve())
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid checkpoint path: '{checkpoint}' attempts to escape `dump_path`: {dump_path}"
+                    )
+
             elif add_prefix:
                 checkpoint_prefix_name = checkpoint
                 dump_path_full = dump_path
@@ -75,9 +96,7 @@ def convert_slow_checkpoint_to_fast(tokenizer_name, checkpoint_name, dump_path, 
                 checkpoint_prefix_name = None
                 dump_path_full = dump_path
 
-            logger.info(
-                "=> {} with prefix {}, add_prefix {}".format(dump_path_full, checkpoint_prefix_name, add_prefix)
-            )
+            logger.info(f"=> {dump_path_full} with prefix {checkpoint_prefix_name}, add_prefix {add_prefix}")
 
             if checkpoint in list(tokenizer.pretrained_vocab_files_map.values())[0]:
                 file_path = list(tokenizer.pretrained_vocab_files_map.values())[0][checkpoint]
@@ -86,19 +105,17 @@ def convert_slow_checkpoint_to_fast(tokenizer_name, checkpoint_name, dump_path, 
                     dump_path_full = os.path.join(dump_path_full, checkpoint_prefix_name)
                     checkpoint_prefix_name = None
 
-                logger.info(
-                    "=> {} with prefix {}, add_prefix {}".format(dump_path_full, checkpoint_prefix_name, add_prefix)
-                )
+                logger.info(f"=> {dump_path_full} with prefix {checkpoint_prefix_name}, add_prefix {add_prefix}")
 
             file_names = tokenizer.save_pretrained(
                 dump_path_full, legacy_format=False, filename_prefix=checkpoint_prefix_name
             )
-            logger.info("=> File names {}".format(file_names))
+            logger.info(f"=> File names {file_names}")
 
             for file_name in file_names:
                 if not file_name.endswith("tokenizer.json"):
                     os.remove(file_name)
-                    logger.info("=> removing {}".format(file_name))
+                    logger.info(f"=> removing {file_name}")
 
 
 if __name__ == "__main__":
@@ -111,8 +128,9 @@ if __name__ == "__main__":
         "--tokenizer_name",
         default=None,
         type=str,
-        help="Optional tokenizer type selected in the list of {}. If not given, will download and convert all the checkpoints from AWS.".format(
-            list(TOKENIZER_CLASSES.keys())
+        help=(
+            f"Optional tokenizer type selected in the list of {list(TOKENIZER_CLASSES.keys())}. If not given, will "
+            "download and convert all the checkpoints from AWS."
         ),
     )
     parser.add_argument(

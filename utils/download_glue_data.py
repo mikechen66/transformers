@@ -1,4 +1,4 @@
-""" Script for downloading all GLUE data.
+"""Script for downloading all GLUE data.
 Original source: https://gist.github.com/W4ngatang/60c2bdb54d156a41194446737ce03e2e
 
 Note: for legal reasons, we are unable to host MRPC.
@@ -45,8 +45,8 @@ MRPC_TEST = "https://dl.fbaipublicfiles.com/senteval/senteval_data/msr_paraphras
 
 
 def download_and_extract(task, data_dir):
-    print("Downloading and extracting %s..." % task)
-    data_file = "%s.zip" % task
+    print(f"Downloading and extracting {task}...")
+    data_file = f"{task}.zip"
     urllib.request.urlretrieve(TASK2PATH[task], data_file)
     with zipfile.ZipFile(data_file) as zip_ref:
         zip_ref.extractall(data_dir)
@@ -68,8 +68,10 @@ def format_mrpc(data_dir, path_to_data):
         mrpc_test_file = os.path.join(mrpc_dir, "msr_paraphrase_test.txt")
         urllib.request.urlretrieve(MRPC_TRAIN, mrpc_train_file)
         urllib.request.urlretrieve(MRPC_TEST, mrpc_test_file)
-    assert os.path.isfile(mrpc_train_file), "Train data not found at %s" % mrpc_train_file
-    assert os.path.isfile(mrpc_test_file), "Test data not found at %s" % mrpc_test_file
+    if not os.path.isfile(mrpc_train_file):
+        raise ValueError(f"Train data not found at {mrpc_train_file}")
+    if not os.path.isfile(mrpc_test_file):
+        raise ValueError(f"Test data not found at {mrpc_test_file}")
     urllib.request.urlretrieve(TASK2PATH["MRPC"], os.path.join(mrpc_dir, "dev_ids.tsv"))
 
     dev_ids = []
@@ -77,9 +79,11 @@ def format_mrpc(data_dir, path_to_data):
         for row in ids_fh:
             dev_ids.append(row.strip().split("\t"))
 
-    with open(mrpc_train_file, encoding="utf8") as data_fh, open(
-        os.path.join(mrpc_dir, "train.tsv"), "w", encoding="utf8"
-    ) as train_fh, open(os.path.join(mrpc_dir, "dev.tsv"), "w", encoding="utf8") as dev_fh:
+    with (
+        open(mrpc_train_file, encoding="utf8") as data_fh,
+        open(os.path.join(mrpc_dir, "train.tsv"), "w", encoding="utf8") as train_fh,
+        open(os.path.join(mrpc_dir, "dev.tsv"), "w", encoding="utf8") as dev_fh,
+    ):
         header = data_fh.readline()
         train_fh.write(header)
         dev_fh.write(header)
@@ -90,9 +94,10 @@ def format_mrpc(data_dir, path_to_data):
             else:
                 train_fh.write("%s\t%s\t%s\t%s\t%s\n" % (label, id1, id2, s1, s2))
 
-    with open(mrpc_test_file, encoding="utf8") as data_fh, open(
-        os.path.join(mrpc_dir, "test.tsv"), "w", encoding="utf8"
-    ) as test_fh:
+    with (
+        open(mrpc_test_file, encoding="utf8") as data_fh,
+        open(os.path.join(mrpc_dir, "test.tsv"), "w", encoding="utf8") as test_fh,
+    ):
         header = data_fh.readline()
         test_fh.write("index\t#1 ID\t#2 ID\t#1 String\t#2 String\n")
         for idx, row in enumerate(data_fh):
@@ -118,7 +123,8 @@ def get_tasks(task_names):
     else:
         tasks = []
         for task_name in task_names:
-            assert task_name in TASKS, "Task %s not found!" % task_name
+            if task_name not in TASKS:
+                raise ValueError(f"Task {task_name} not found!")
             tasks.append(task_name)
     return tasks
 
